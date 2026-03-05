@@ -1,0 +1,3 @@
+struct physmem_info
+{
+};

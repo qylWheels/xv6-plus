@@ -108,3 +108,13 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+// 获取系统物理内存相关信息，并填充用户传来的结构体
+uint64
+sys_physmem_info(void)
+{
+  uint64 p;
+  argaddr(0, &p);
+
+  return -1;
+}
