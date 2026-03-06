@@ -29,6 +29,7 @@ OBJS = \
 	$K/core/kernelvec.o \
 	$K/drivers/plic.o \
 	$K/drivers/virtio_disk.o
+	$K/physmem_info.o \
 
 # riscv64-unknown-elf- or riscv64-linux-gnu-
 # perhaps in /opt/riscv/bin
