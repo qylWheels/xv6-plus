@@ -1,6 +1,10 @@
-struct buf {
-  int valid;   // has data been read from disk?
-  int disk;    // does disk "own" buf?
+#ifndef _BUF_H_
+#define _BUF_H_
+
+struct buf
+{
+  int valid; // has data been read from disk?
+  int disk;  // does disk "own" buf?
   uint dev;
   uint blockno;
   struct sleeplock lock;
@@ -10,3 +14,4 @@ struct buf {
   uchar data[BSIZE];
 };
 
+#endif /* _BUF_H_ */
