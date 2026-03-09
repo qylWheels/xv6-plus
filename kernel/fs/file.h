@@ -1,6 +1,8 @@
 #ifndef _FILE_H_
 #define _FILE_H_
 
+#include <uapi/fs/file.h>  
+
 struct file
 {
   enum
@@ -48,7 +50,5 @@ struct devsw
 };
 
 extern struct devsw devsw[];
-
-#define CONSOLE 1
 
 #endif /* _FILE_H_ */

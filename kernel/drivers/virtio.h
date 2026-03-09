@@ -7,8 +7,8 @@
 // https://docs.oasis-open.org/virtio/virtio/v1.1/virtio-v1.1.pdf
 //
 
-#ifndef _VIRTIO_H_
-#define _VIRTIO_H_
+#ifndef _DRIVERS_VIRTIO_H_
+#define _DRIVERS_VIRTIO_H_
 
 // virtio mmio control registers, mapped starting at 0x10001000.
 // from qemu virtio_mmio.h
@@ -103,4 +103,4 @@ struct virtio_blk_req
   uint64 sector;
 };
 
-#endif /* _VIRTIO_H_ */
+#endif /* _DRIVERS_VIRTIO_H_ */

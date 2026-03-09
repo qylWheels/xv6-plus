@@ -1,6 +1,8 @@
 // Format of an ELF executable file
-#ifndef _ELF_H_
-#define _ELF_H_
+#ifndef _FS_ELF_H_
+#define _FS_ELF_H_
+
+#include <uapi/core/types.h>
 
 #define ELF_MAGIC 0x464C457FU // "\x7FELF" in little endian
 
@@ -45,4 +47,4 @@ struct proghdr
 #define ELF_PROG_FLAG_WRITE 2
 #define ELF_PROG_FLAG_READ 4
 
-#endif /* _ELF_H_ */
+#endif /* _FS_ELF_H_ */

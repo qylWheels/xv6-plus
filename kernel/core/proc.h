@@ -1,5 +1,5 @@
-#ifndef _PROC_H_
-#define _PROC_H_
+#ifndef _CORE_PROC_H_
+#define _CORE_PROC_H_
 
 // Saved registers for kernel context switches.
 struct context
@@ -121,4 +121,4 @@ struct proc
   char name[16];               // Process name (debugging)
 };
 
-#endif /* _PROC_H_ */
+#endif /* _CORE_PROC_H_ */

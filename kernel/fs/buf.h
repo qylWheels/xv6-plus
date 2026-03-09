@@ -1,5 +1,5 @@
-#ifndef _BUF_H_
-#define _BUF_H_
+#ifndef _FS_BUF_H_
+#define _FS_BUF_H_
 
 struct buf
 {
@@ -14,4 +14,4 @@ struct buf
   uchar data[BSIZE];
 };
 
-#endif /* _BUF_H_ */
+#endif /* _FS_BUF_H_ */
