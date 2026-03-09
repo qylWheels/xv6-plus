@@ -1,6 +1,6 @@
-#ifndef _STAT_H_
-#define _STAT_H_
+#ifndef _FS_STAT_H_
+#define _FS_STAT_H_
 
 #include <uapi/fs/stat.h>
 
-#endif /* _STAT_H_ */
+#endif /* _FS_STAT_H_ */

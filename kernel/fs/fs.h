@@ -1,8 +1,8 @@
 // On-disk file system format.
 // Both the kernel and user programs use this header file.
 
-#ifndef _FS_H_
-#define _FS_H_
+#ifndef _FS_FS_H_
+#define _FS_FS_H_
 
 #include <uapi/fs/fs.h>
 
@@ -56,4 +56,24 @@ struct dinode
 // Block of free map containing bit for block b
 #define BBLOCK(b, sb) ((b) / BPB + sb.bmapstart)
 
-#endif /* _FS_H_ */
+void fsinit(int);
+int dirlink(struct inode *, char *, uint);
+struct inode *dirlookup(struct inode *, char *, uint *);
+struct inode *ialloc(uint, short);
+struct inode *idup(struct inode *);
+void iinit();
+void ilock(struct inode *);
+void iput(struct inode *);
+void iunlock(struct inode *);
+void iunlockput(struct inode *);
+void iupdate(struct inode *);
+int namecmp(const char *, const char *);
+struct inode *namei(char *);
+struct inode *nameiparent(char *, char *);
+int readi(struct inode *, int, uint64, uint, uint);
+void stati(struct inode *, struct stat *);
+int writei(struct inode *, int, uint64, uint, uint);
+void itrunc(struct inode *);
+void ireclaim(int);
+
+#endif /* _FS_FS_H_ */
