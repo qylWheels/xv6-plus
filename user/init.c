@@ -1,13 +1,11 @@
 // init: The initial user-level program
 
-#include "kernel/types.h"
-#include "kernel/stat.h"
-#include "kernel/spinlock.h"
-#include "kernel/sleeplock.h"
-#include "kernel/fs.h"
-#include "kernel/file.h"
+#include <kernel/uapi/core/types.h>
+#include <kernel/uapi/fs/stat.h>
+#include <kernel/uapi/fs/fs.h>
+#include <kernel/uapi/fs/file.h>
 #include "user/user.h"
-#include "kernel/fcntl.h"
+#include <kernel/uapi/fs/fcntl.h>
 
 char *argv[] = { "sh", 0 };
 

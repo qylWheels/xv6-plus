@@ -1,6 +1,6 @@
-#include "kernel/types.h"
-#include "kernel/stat.h"
-#include "kernel/fcntl.h"
+#include <kernel/uapi/core/types.h>
+#include <kernel/uapi/fs/stat.h>
+#include <kernel/uapi/fs/fcntl.h>
 #include "user/user.h"
 
 // Create an orphaned directory and check if test-xv6.py recovers it.

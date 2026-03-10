@@ -24,11 +24,15 @@
 #define SYS_mkdir 20
 #define SYS_close 21
 
+#ifndef __ASSEMBLER__
+
 void argint(int, int *);
 int argstr(int, char *, int);
 void argaddr(int, uint64 *);
 int fetchstr(uint64, char *, int);
 int fetchaddr(uint64, uint64 *);
 void syscall();
+
+#endif // __ASSEMBLER__
 
 #endif /* _CORE_SYSCALL_H_ */

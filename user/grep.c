@@ -1,8 +1,8 @@
 // Simple grep.  Only supports ^ . * $ operators.
 
-#include "kernel/types.h"
-#include "kernel/stat.h"
-#include "kernel/fcntl.h"
+#include <kernel/uapi/core/types.h>
+#include <kernel/uapi/fs/stat.h>
+#include <kernel/uapi/fs/fcntl.h>
 #include "user/user.h"
 
 char buf[1024];

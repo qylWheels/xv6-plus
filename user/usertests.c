@@ -1,12 +1,14 @@
-#include "kernel/param.h"
-#include "kernel/types.h"
-#include "kernel/stat.h"
+// XXX: 此文件需要访问kernel内部的内容
+
+#include <kernel/core/types.h>
+#include <kernel/fs/stat.h>
+#include <kernel/fs/fcntl.h>
+#include <kernel/fs/stat.h>
 #include "user/user.h"
-#include "kernel/fs.h"
-#include "kernel/fcntl.h"
-#include "kernel/syscall.h"
-#include "kernel/memlayout.h"
-#include "kernel/riscv.h"
+#include <kernel/fs/fs.h>
+#include <kernel/core/riscv.h>
+#include <kernel/core/param.h>
+#include <kernel/mm/memlayout.h>
 
 //
 // Tests xv6 system calls.  usertests without arguments runs them all

@@ -1,8 +1,8 @@
-#include "kernel/types.h"
-#include "kernel/stat.h"
-#include "kernel/fcntl.h"
-#include "kernel/riscv.h"
-#include "kernel/vm.h"
+#include <kernel/uapi/core/types.h>
+#include <kernel/uapi/fs/stat.h>
+#include <kernel/uapi/fs/fcntl.h>
+#include <kernel/uapi/core/riscv.h>
+#include <kernel/uapi/mm/vm.h>
 #include "user/user.h"
 
 //
