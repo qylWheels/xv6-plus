@@ -2,33 +2,33 @@ K=kernel
 U=user
 
 OBJS = \
-  $K/entry.o \
-  $K/start.o \
-  $K/console.o \
-  $K/printf.o \
-  $K/uart.o \
-  $K/kalloc.o \
-  $K/spinlock.o \
-  $K/string.o \
-  $K/main.o \
-  $K/vm.o \
-  $K/proc.o \
-  $K/swtch.o \
-  $K/trampoline.o \
-  $K/trap.o \
-  $K/syscall.o \
-  $K/sysproc.o \
-  $K/bio.o \
-  $K/fs.o \
-  $K/log.o \
-  $K/sleeplock.o \
-  $K/file.o \
-  $K/pipe.o \
-  $K/exec.o \
-  $K/sysfile.o \
-  $K/kernelvec.o \
-  $K/plic.o \
-  $K/virtio_disk.o
+	$K/init/entry.o \
+	$K/init/start.o \
+	$K/drivers/console.o \
+	$K/utils/printf.o \
+	$K/drivers/uart.o \
+	$K/mm/kalloc.o \
+	$K/sync/spinlock.o \
+	$K/utils/string.o \
+	$K/init/main.o \
+	$K/mm/vm.o \
+	$K/core/proc.o \
+	$K/core/swtch.o \
+	$K/core/trampoline.o \
+	$K/core/trap.o \
+	$K/core/syscall.o \
+	$K/core/sysproc.o \
+	$K/fs/bio.o \
+	$K/fs/fs.o \
+	$K/fs/log.o \
+	$K/sync/sleeplock.o \
+	$K/fs/file.o \
+	$K/ipc/pipe.o \
+	$K/core/exec.o \
+	$K/fs/sysfile.o \
+	$K/core/kernelvec.o \
+	$K/drivers/plic.o \
+	$K/drivers/virtio_disk.o
 
 # riscv64-unknown-elf- or riscv64-linux-gnu-
 # perhaps in /opt/riscv/bin
