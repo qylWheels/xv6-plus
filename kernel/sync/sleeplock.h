@@ -1,6 +1,8 @@
 #ifndef _SLEEPLOCK_H_
 #define _SLEEPLOCK_H_
 
+#include <sync/spinlock.h>
+
 // Long-term locks for processes
 struct sleeplock
 {

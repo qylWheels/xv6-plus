@@ -2,16 +2,19 @@
 // Support functions for system calls that involve file descriptors.
 //
 
-#include "types.h"
-#include "riscv.h"
-#include "defs.h"
-#include "param.h"
-#include "fs.h"
-#include "spinlock.h"
-#include "sleeplock.h"
-#include "file.h"
-#include "stat.h"
-#include "proc.h"
+#include <core/types.h>
+#include <core/riscv.h>
+#include <core/param.h>
+#include <fs/fs.h>
+#include <sync/spinlock.h>
+#include <sync/sleeplock.h>
+#include <fs/file.h>
+#include <fs/stat.h>
+#include <core/proc.h>
+#include <utils/printf.h>
+#include <ipc/pipe.h>
+#include <fs/log.h>
+#include <mm/vm.h>
 
 struct devsw devsw[NDEV];
 struct {

@@ -1,11 +1,12 @@
-#include "types.h"
-#include "riscv.h"
-#include "defs.h"
-#include "param.h"
-#include "memlayout.h"
-#include "spinlock.h"
-#include "proc.h"
-#include "vm.h"
+#include <core/types.h>
+#include <core/riscv.h>
+#include <core/param.h>
+#include <mm/memlayout.h>
+#include <sync/spinlock.h>
+#include <core/proc.h>
+#include <mm/vm.h>
+#include <core/syscall.h>
+#include <core/trap.h>
 
 uint64
 sys_exit(void)

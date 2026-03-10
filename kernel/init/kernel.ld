@@ -10,7 +10,7 @@ SECTIONS
   . = 0x80000000;
 
   .text : {
-    kernel/entry.o(_entry)
+    kernel/init/entry.o(_entry)
     *(.text .text.*)
     . = ALIGN(0x1000);
     _trampoline = .;

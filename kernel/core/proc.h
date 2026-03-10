@@ -1,6 +1,8 @@
 #ifndef _CORE_PROC_H_
 #define _CORE_PROC_H_
 
+#include <sync/spinlock.h>
+
 // Saved registers for kernel context switches.
 struct context
 {

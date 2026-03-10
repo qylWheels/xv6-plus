@@ -6,10 +6,10 @@
 #include <assert.h>
 
 #define stat xv6_stat  // avoid clash with host struct stat
-#include "kernel/types.h"
-#include "kernel/fs.h"
-#include "kernel/stat.h"
-#include "kernel/param.h"
+#include <core/types.h>
+#include <fs/fs.h>
+#include <fs/stat.h>
+#include <core/param.h>
 
 #ifndef static_assert
 #define static_assert(a, b) do { switch (0) case 0: case (a): ; } while (0)
@@ -38,7 +38,7 @@ void wsect(uint, void*);
 void winode(uint, struct dinode*);
 void rinode(uint inum, struct dinode *ip);
 void rsect(uint sec, void *buf);
-uint ialloc(ushort type);
+uint mkfs_ialloc(ushort type); // XXX: 直接命名为ialloc会和kernel/fs/fs.h中的ialloc冲突
 void iappend(uint inum, void *p, int n);
 void die(const char *);
 
@@ -114,7 +114,7 @@ main(int argc, char *argv[])
   memmove(buf, &sb, sizeof(sb));
   wsect(1, buf);
 
-  rootino = ialloc(T_DIR);
+  rootino = mkfs_ialloc(T_DIR);
   assert(rootino == ROOTINO);
 
   bzero(&de, sizeof(de));
@@ -149,7 +149,7 @@ main(int argc, char *argv[])
 
     assert(strlen(shortname) <= DIRSIZ);
     
-    inum = ialloc(T_FILE);
+    inum = mkfs_ialloc(T_FILE);
 
     bzero(&de, sizeof(de));
     de.inum = xshort(inum);
@@ -220,7 +220,7 @@ rsect(uint sec, void *buf)
 }
 
 uint
-ialloc(ushort type)
+mkfs_ialloc(ushort type)
 {
   uint inum = freeinode++;
   struct dinode din;

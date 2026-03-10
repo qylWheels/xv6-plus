@@ -11,16 +11,17 @@
 
 #include <stdarg.h>
 
-#include "types.h"
-#include "param.h"
-#include "spinlock.h"
-#include "sleeplock.h"
-#include "fs.h"
-#include "file.h"
-#include "memlayout.h"
-#include "riscv.h"
-#include "defs.h"
-#include "proc.h"
+#include <core/types.h>
+#include <core/param.h>
+#include <sync/spinlock.h>
+#include <sync/sleeplock.h>
+#include <fs/fs.h>
+#include <fs/file.h>
+#include <mm/memlayout.h>
+#include <core/riscv.h>
+#include <core/proc.h>
+#include <drivers/uart.h>
+#include <drivers/console.h>
 
 #define BACKSPACE 0x100  // erase the last output character
 #define C(x)  ((x)-'@')  // Control-x

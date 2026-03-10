@@ -6,6 +6,9 @@
 
 #include <uapi/fs/fs.h>
 
+#include <fs/stat.h>
+#include <sync/sleeplock.h>
+
 #define ROOTINO 1  // root i-number
 #define BSIZE 1024 // block size
 
@@ -42,6 +45,23 @@ struct dinode
   short nlink;             // Number of links to inode in file system
   uint size;               // Size of file (bytes)
   uint addrs[NDIRECT + 1]; // Data block addresses
+};
+
+// in-memory copy of an inode
+struct inode
+{
+  uint dev;              // Device number
+  uint inum;             // Inode number
+  int ref;               // Reference count
+  struct sleeplock lock; // protects everything below here
+  int valid;             // inode has been read from disk?
+
+  short type; // copy of disk inode
+  short major;
+  short minor;
+  short nlink;
+  uint size;
+  uint addrs[NDIRECT + 1];
 };
 
 // Inodes per block.

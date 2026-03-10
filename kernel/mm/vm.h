@@ -3,6 +3,9 @@
 
 #include <uapi/mm/vm.h>
 
+#include <core/types.h>
+#include <core/riscv.h>
+
 void kvminit(void);
 void kvminithart(void);
 void kvmmap(pagetable_t, uint64, uint64, uint64, int);

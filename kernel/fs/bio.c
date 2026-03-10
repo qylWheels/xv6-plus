@@ -14,14 +14,15 @@
 //     so do not keep them longer than necessary.
 
 
-#include "types.h"
-#include "param.h"
-#include "spinlock.h"
-#include "sleeplock.h"
-#include "riscv.h"
-#include "defs.h"
-#include "fs.h"
-#include "buf.h"
+#include <core/types.h>
+#include <core/param.h>
+#include <sync/spinlock.h>
+#include <sync/sleeplock.h>
+#include <core/riscv.h>
+#include <fs/fs.h>
+#include <fs/buf.h>
+#include <utils/printf.h>
+#include <drivers/virtio_disk.h>
 
 struct {
   struct spinlock lock;

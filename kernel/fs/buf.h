@@ -1,6 +1,9 @@
 #ifndef _FS_BUF_H_
 #define _FS_BUF_H_
 
+#include <sync/sleeplock.h>
+#include <fs/fs.h>
+
 struct buf
 {
   int valid; // has data been read from disk?

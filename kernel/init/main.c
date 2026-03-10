@@ -1,8 +1,18 @@
-#include "types.h"
-#include "param.h"
-#include "memlayout.h"
-#include "riscv.h"
-#include "defs.h"
+#include <core/types.h>
+#include <core/param.h>
+#include <mm/memlayout.h>
+#include <mm/kalloc.h>
+#include <mm/vm.h>
+#include <core/riscv.h>
+#include <core/proc.h>
+#include <core/trap.h>
+#include <utils/printf.h>
+#include <drivers/console.h>
+#include <drivers/plic.h>
+#include <drivers/virtio_disk.h>
+#include <fs/bio.h>
+#include <fs/fs.h>
+#include <fs/file.h>
 
 volatile static int started = 0;
 
