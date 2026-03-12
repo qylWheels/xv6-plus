@@ -1,11 +1,9 @@
-#include "types.h"
-#include "riscv.h"
-#include "param.h"
-#include "defs.h"
-#include "spinlock.h"
-#include "proc.h"
-#include "kalloc.h"
-#include "physmem_info.h"
+#include <sync/spinlock.h>
+#include <core/types.h>
+#include <mm/physmem_info.h>
+#include <mm/vm.h>
+#include <mm/kalloc.h>
+#include <core/proc.h>
 
 extern struct kmem kmem;
 

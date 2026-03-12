@@ -7,7 +7,7 @@
 #include <mm/vm.h>
 #include <core/syscall.h>
 #include <core/trap.h>
-#include <physmem_info.h>
+#include <mm/physmem_info.h>
 
 uint64
 sys_exit(void)

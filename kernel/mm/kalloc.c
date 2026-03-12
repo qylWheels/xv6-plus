@@ -10,6 +10,7 @@
 #include <core/riscv.h>
 #include <utils/printf.h>
 #include <utils/string.h>
+#include <mm/kalloc.h>
 
 void freerange(void *pa_start, void *pa_end);
 

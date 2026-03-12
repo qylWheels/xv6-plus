@@ -1,6 +1,8 @@
 #ifndef _SPINLOCK_H_
 #define _SPINLOCK_H_
 
+#include <core/types.h>
+
 // Mutual exclusion lock.
 struct spinlock
 {

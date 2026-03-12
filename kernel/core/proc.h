@@ -2,6 +2,7 @@
 #define _CORE_PROC_H_
 
 #include <sync/spinlock.h>
+#include <core/param.h>
 
 // Saved registers for kernel context switches.
 struct context

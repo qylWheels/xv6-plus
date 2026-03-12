@@ -1,4 +1,7 @@
-#include "types.h"
+#ifndef _MM_PHYSMEM_INFO_H_
+#define _MM_PHYSMEM_INFO_H_
+
+#include <core/types.h>
 
 // 内核中4k页面和2m页面的相关信息
 struct physmem_info
@@ -15,3 +18,5 @@ struct physmem_info
 };
 
 void kphysmem_info(struct physmem_info *pi);
+
+#endif // _MM_PHYSMEM_INFO_H_
