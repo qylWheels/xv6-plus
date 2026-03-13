@@ -1,5 +1,5 @@
-#include <kernel/core/types.h>
-#include <kernel/mm/physmem_info.h>
+#include <kernel/uapi/core/types.h>
+#include <kernel/uapi/mm/physmem_info.h>
 #include "user/user.h"
 
 int main(int argc, char *argv[])
