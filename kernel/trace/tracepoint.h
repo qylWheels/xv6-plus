@@ -6,7 +6,7 @@
 #include <core/types.h>
 
 // 探针的最大数量
-#define MAX_PROBES 128
+#define MAX_PROBES 16
 
 #define TRACE_PROTO(...) __VA_ARGS__
 
