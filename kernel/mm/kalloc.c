@@ -25,20 +25,31 @@ struct run
 
 struct kmem kmem;
 
-int kalloc_times = 0;         // kalloc()调用的次数
-struct spinlock counter_lock; // 计数器锁
+int kalloc_times = 0;            // kalloc()调用的次数
+struct spinlock kalloc_cnt_lock; // 计数器锁
 void kalloc_probe()
 {
-  acquire(&counter_lock);
+  acquire(&kalloc_cnt_lock);
   kalloc_times += 1;
-  release(&counter_lock);
+  release(&kalloc_cnt_lock);
+}
+
+int kfree_times = 0;            // kalloc()调用的次数
+struct spinlock kfree_cnt_lock; // 计数器锁
+void kfree_probe()
+{
+  acquire(&kfree_cnt_lock);
+  kfree_times += 1;
+  release(&kfree_cnt_lock);
 }
 
 void kinit()
 {
-  // 注册针对kalloc的probe
-  initlock(&counter_lock, "kalloc_times_lock");
+  // 注册针对kalloc、kfree的probe
+  initlock(&kalloc_cnt_lock, "kalloc_times_lock");
   reg_trace_kalloc_probe(kalloc_probe);
+  initlock(&kfree_cnt_lock, "kfree_times_lock");
+  reg_trace_kfree_probe(kfree_probe);
 
   initlock(&kmem.lock, "kmem");
   kmem.free = 0;
@@ -63,6 +74,8 @@ void freerange(void *pa_start, void *pa_end)
 // initializing the allocator; see kinit above.)
 void kfree(void *pa)
 {
+  trace_kfree();
+
   struct run *r;
 
   if (((uint64)pa % PGSIZE) != 0 || (char *)pa < end || (uint64)pa >= PHYSTOP)
