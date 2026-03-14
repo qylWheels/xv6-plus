@@ -43,6 +43,7 @@
             {                                                                     \
                 _##event##_probes[i].probe = probe;                               \
                 _##event##_probes[i].used = 1;                                    \
+                break;                                                            \
             }                                                                     \
         }                                                                         \
     }                                                                             \
