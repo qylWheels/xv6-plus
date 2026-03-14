@@ -11,6 +11,7 @@
 #include <utils/printf.h>
 #include <utils/string.h>
 #include <mm/kalloc.h>
+#include <trace/events/kalloc.h>
 
 void freerange(void *pa_start, void *pa_end);
 
@@ -24,8 +25,21 @@ struct run
 
 struct kmem kmem;
 
+int kalloc_times = 0;         // kalloc()调用的次数
+struct spinlock counter_lock; // 计数器锁
+void kalloc_probe()
+{
+  acquire(&counter_lock);
+  kalloc_times += 1;
+  release(&counter_lock);
+}
+
 void kinit()
 {
+  // 注册针对kalloc的probe
+  initlock(&counter_lock, "kalloc_times_lock");
+  reg_trace_kalloc_probe(kalloc_probe);
+
   initlock(&kmem.lock, "kmem");
   kmem.free = 0;
   kmem.alloc_times = 0;
@@ -73,6 +87,8 @@ void kfree(void *pa)
 void *
 kalloc(void)
 {
+  trace_kalloc();
+
   struct run *r;
 
   acquire(&kmem.lock);
