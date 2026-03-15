@@ -5,6 +5,7 @@
 
 struct stat;
 struct physmem_info;
+struct pgfault_info;
 
 // system calls
 int fork(void);
@@ -29,6 +30,7 @@ char *sys_sbrk(int, int);
 int pause(int);
 int uptime(void);
 int physmem_info(struct physmem_info*);
+int pgfault_info(struct pgfault_info*);
 
 // ulib.c
 int stat(const char *, struct stat *);

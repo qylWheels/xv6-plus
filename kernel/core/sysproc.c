@@ -8,6 +8,7 @@
 #include <core/syscall.h>
 #include <core/trap.h>
 #include <mm/physmem_info.h>
+#include <mm/pgfault_info.h>
 
 uint64
 sys_exit(void)
@@ -124,6 +125,19 @@ sys_physmem_info(void)
   argaddr(0, &p);
 
   kphysmem_info((struct physmem_info *)p);
+
+  return 0;
+}
+
+// 获取当前进程的缺页异常相关信息，并填充用户传来的结构体
+uint64
+sys_pgfault_info(void)
+{
+  uint64 p;
+  argaddr(0, &p);
+
+  struct proc *proc = myproc();
+  copyout(proc->pagetable, p, (char *)&proc->pgfaults, sizeof(proc->pgfaults));
 
   return 0;
 }
