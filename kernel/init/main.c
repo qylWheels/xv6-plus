@@ -47,10 +47,11 @@ void main() {
 // 如果定义了UNIT_TEST宏，则运行单元测试后停机
 // 单元测试只在cpu0上运行，以防止同步问题
 #ifdef UNIT_TEST
+    printf("starting unit test...\n");
     UNITY_BEGIN();
     UNITY_END();
     // 停机
-    panic("unit test completed\n");
+    panic("unit test completed, press <ctrl+a> then press <x> to exit qemu\n");
 #endif
 
     started = 1;
