@@ -3,6 +3,10 @@
 
 #include <uapi/core/types.h>
 
+#ifndef __ASSEMBLER__
+
 typedef uint64 pde_t;
+
+#endif  // __ASSEMBLER__
 
 #endif /* _CORE_TYPES_H_ */
