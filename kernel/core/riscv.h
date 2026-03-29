@@ -2,6 +2,7 @@
 #define _CORE_RISCV_H_
 
 #include <uapi/core/riscv.h>
+#include <core/types.h>
 
 #ifndef __ASSEMBLER__
 
