@@ -7,7 +7,7 @@
 
 #include "unity_fixture.h"
 #include "unity_internals.h"
-#include <string.h>
+#include <utils/string.h>
 
 struct UNITY_FIXTURE_T UnityFixture;
 
