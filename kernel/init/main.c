@@ -18,7 +18,9 @@
 
 volatile static int started = 0;
 
-static void run_all_tests(void) {}
+static void run_all_tests(void) {
+  RUN_TEST_GROUP(kmalloc);
+}
 
 // start() jumps here in supervisor mode on all CPUs.
 void main() {
@@ -50,7 +52,8 @@ void main() {
     int dummy_argc = 1;
     const char* dummy_argv[] = {"xv6"};
     UnityMain(dummy_argc, dummy_argv, run_all_tests);
-    panic("\nunit test completed, press <ctrl+a> then press <x> to exit qemu\n");
+    printf("\n");
+    panic("unit test completed, press <ctrl+a> then press <x> to exit qemu\n");
 #endif
 
     started = 1;
