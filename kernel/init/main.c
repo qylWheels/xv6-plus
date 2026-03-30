@@ -18,9 +18,9 @@
 
 volatile static int started = 0;
 
-static void run_all_tests(void) {
-  RUN_TEST_GROUP(kmalloc);
-}
+#ifdef UNIT_TEST
+static void run_all_tests(void) { RUN_TEST_GROUP(kmalloc); }
+#endif  // UNIT_TEST
 
 // start() jumps here in supervisor mode on all CPUs.
 void main() {
