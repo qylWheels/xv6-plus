@@ -2,7 +2,7 @@
 
 #include <core/types.h>
 
-// 参数size：为0时不做任何事情；大于0时分配size字节内存
+// 参数size：size=0时不做任何事情；size>0且size<=2048时分配size字节内存；size>2048时panic
 // 返回值：若size=0，返回NULL；若size>0，成功时返回指向已分配内存的指针，
 // 失败时panic
 void* kmalloc(uint64 size);
