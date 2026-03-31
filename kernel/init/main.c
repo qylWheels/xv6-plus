@@ -10,6 +10,7 @@
 #include <fs/file.h>
 #include <fs/fs.h>
 #include <mm/kalloc.h>
+#include <mm/kmalloc.h>
 #include <mm/memlayout.h>
 #include <mm/vm.h>
 #include <test/unity.h>
@@ -33,6 +34,7 @@ void main() {
     kinit();             // physical page allocator
     kvminit();           // create kernel page table
     kvminithart();       // turn on paging
+    kmallocinit();       // 初始化kmalloc模块
     procinit();          // process table
     trapinit();          // trap vectors
     trapinithart();      // install kernel trap vector
