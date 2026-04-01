@@ -17,7 +17,9 @@ struct kmalloc_block_head {
   struct kmalloc_block_head* nextfree;
 };
 
+// 这个结构会嵌在由kalloc()分配的页的头部
 struct kmalloc_page {
+  void* base;  // 用户可用的空间的起始地址
   struct kmalloc_block_head* firstfree;
   struct kmalloc_page* next;
 };
@@ -100,7 +102,8 @@ void kmallocinit(void) {
 
 // 初始化一个新分配的页
 static void init_page(void* page, uint16 block_size) {
-  for (void* p = page; p < page + PGSIZE; p += block_size) {
+  for (void* p = page + sizeof(struct kmalloc_page); p < page + PGSIZE;
+       p += block_size) {
     struct kmalloc_block_head* head = (struct kmalloc_block_head*)p;
     if (p + block_size < page + PGSIZE) {
       head->nextfree = (struct kmalloc_block_head*)(p + block_size);
@@ -126,8 +129,11 @@ void* kmalloc(uint64 sz) {
   // current为空，分配一个新的页，将其初始化，并加入current中
   if (cache->current == NULL) {
     void* page = kalloc();
-    init_page(page, cache->block_size);
     cache->current = page;
+    init_page(page, cache->block_size);
+    cache->current->base = page + sizeof(struct kmalloc_page);
+    cache->current->firstfree = page + sizeof(struct kmalloc_page);
+    cache->current->next = NULL;
   }
 
   // 先从current中取出一个块
@@ -145,12 +151,11 @@ void* kmalloc(uint64 sz) {
     if (cache->partial == NULL) {
       // 申请新页
       void* page = kalloc();
-
-      // 初始化该页
-      init_page(page, cache->block_size);
-
-      // 将该页加到partial中
       cache->partial = page;
+      init_page(page, cache->block_size);
+      cache->partial->base = page + sizeof(struct kmalloc_page);
+      cache->partial->firstfree = page + sizeof(struct kmalloc_page);
+      cache->partial->next = NULL;
     }
     // 现在partial一定有page，将第一个page放置到current中
     cache->current = cache->partial;
@@ -161,7 +166,19 @@ void* kmalloc(uint64 sz) {
   return (void*)mem;
 }
 
-void kmfree(const void* p) {}
+// 判断指针指向的内存属于哪个cache
+// static int which_cache(const void* p) {
+//   for (int i = 0; i < NCACHE; ++i) {
+//     struct kmalloc_page* pg;
+//     // 依次遍历current、partial、full链表
+//     struct kmalloc_page* current = caches.kmalloc_cache_list[i].current;
+//     struct kmalloc_page* partial = caches.kmalloc_cache_list[i].partial;
+//     struct kmalloc_page* full = caches.kmalloc_cache_list[i].full;
+//     for (pg = current; pg != NULL; pg = pg->next) {
+//       if (p > pg) }
+//   }
+
+//   void kmfree(const void* p) {}
 
 // 单元测试
 #ifdef UNIT_TEST
@@ -196,7 +213,13 @@ TEST(kmalloc, test_kmalloc) {
 
   // 0<sz<=2048
   TEST_ASSERT_NOT_NULL(kmalloc(1));
+  TEST_ASSERT_NOT_NULL(kmalloc(1));
+  TEST_ASSERT_NOT_NULL(kmalloc(1));
   TEST_ASSERT_NOT_NULL(kmalloc(15));
+  TEST_ASSERT_NOT_NULL(kmalloc(15));
+  TEST_ASSERT_NOT_NULL(kmalloc(15));
+  TEST_ASSERT_NOT_NULL(kmalloc(514));
+  TEST_ASSERT_NOT_NULL(kmalloc(514));
   TEST_ASSERT_NOT_NULL(kmalloc(514));
   TEST_ASSERT_NOT_NULL(kmalloc(1919));
   TEST_ASSERT_NOT_NULL(kmalloc(1919));
