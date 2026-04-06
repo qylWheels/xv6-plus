@@ -36,7 +36,6 @@ struct kmalloc_caches {
 } caches;
 
 // 不考虑n=0时的情况，因为该情况已被kmalloc排除
-// FIXME: 修复n已经是2的x次方时，仍会向上取整的问题
 #define ROUNDUP(n)              \
   ({                            \
     uint64 _r = 1;              \
@@ -166,19 +165,55 @@ void* kmalloc(uint64 sz) {
   return (void*)mem;
 }
 
-// 判断指针指向的内存属于哪个cache
-// static int which_cache(const void* p) {
-//   for (int i = 0; i < NCACHE; ++i) {
-//     struct kmalloc_page* pg;
-//     // 依次遍历current、partial、full链表
-//     struct kmalloc_page* current = caches.kmalloc_cache_list[i].current;
-//     struct kmalloc_page* partial = caches.kmalloc_cache_list[i].partial;
-//     struct kmalloc_page* full = caches.kmalloc_cache_list[i].full;
-//     for (pg = current; pg != NULL; pg = pg->next) {
-//       if (p > pg) }
-//   }
+void kmfree(void* p) {
+  // 判断指针指向的内存属于哪个cache，哪个链表（current/partial/full）
+  for (int i = 0; i < NCACHE; ++i) {
+    struct kmalloc_page* pg;
 
-//   void kmfree(const void* p) {}
+    // 依次检查current页，以及遍历partial、full链表
+    struct kmalloc_page* current = caches.kmalloc_cache_list[i].current;
+    struct kmalloc_page* partial = caches.kmalloc_cache_list[i].partial;
+    struct kmalloc_page* full = caches.kmalloc_cache_list[i].full;
+
+    // 检查current页
+    pg = current;
+    // 若指针属于current页内
+    if (p >= pg->base && (uint64)p < (uint64)pg + PGSIZE) {
+      struct kmalloc_block_head* blk_head = p;
+      blk_head->nextfree = pg->firstfree;
+      pg->firstfree = blk_head;
+      return;
+    }
+
+    // 扫描partial链表
+    for (pg = partial; NULL != pg; pg = pg->next) {
+      if (p >= pg->base && (uint64)p < (uint64)pg + PGSIZE) {
+        struct kmalloc_block_head* blk_head = p;
+        blk_head->nextfree = pg->firstfree;
+        pg->firstfree = blk_head;
+        return;
+      }
+    }
+
+    // 扫描full链表
+    struct kmalloc_page* prev_pg;
+    for (prev_pg = NULL, pg = full; NULL != pg;
+         pg = pg->next, prev_pg = prev_pg->next) {
+      if (p >= pg->base && (uint64)p < (uint64)pg + PGSIZE) {
+        struct kmalloc_block_head* blk_head = p;
+        blk_head->nextfree = pg->firstfree;
+        pg->firstfree = blk_head;
+
+        // 现在该页有空闲空间了，将该页从full链表中删除
+        prev_pg->next = pg->next;
+
+        // 把该页放到partial链表中
+        pg->next = partial;
+        caches.kmalloc_cache_list[i].partial->next = pg;
+      }
+    }
+  }
+}
 
 // 单元测试
 #ifdef UNIT_TEST
@@ -234,6 +269,16 @@ TEST(kmalloc, test_kmalloc) {
   // sz>2048
   TEST_ASSERT_NULL(kmalloc(2049));
   TEST_ASSERT_NULL(kmalloc(16384));
+}
+
+TEST(kmalloc, test_kmfree) {
+  void* p;
+  for (int i = 0; i < PGSIZE / 15*500; i++) {
+    p = kmalloc(15);
+  }
+  TEST_ASSERT_NOT_NULL(p);
+  kmfree(p);
+  TEST_ASSERT_EQUAL(caches.kmalloc_cache_list[1].partial, NULL);
 }
 
 #endif  // UNIT_TEST

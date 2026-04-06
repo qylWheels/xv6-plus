@@ -10,7 +10,8 @@ void kmallocinit(void);
 // 失败时panic
 void* kmalloc(uint64 size);
 
-// 参数p：为NULL时不做任何事情；为非NULL时，则释放其指向的内存
-void kmfree(const void* p);
+// 参数p：为NULL时不做任何事情；为非NULL时，则释放其指向的内存。
+// 注意：p必须指向由kmalloc分配的内存的开始
+void kmfree(void* p);
 
 #endif  // _MM_KMALLOC_H_
