@@ -1,6 +1,7 @@
 #include <core/riscv.h>
 #include <mm/kalloc.h>
 #include <mm/kmalloc.h>
+#include <sync/spinlock.h>
 #include <test/unity_fixture.h>
 #include <utils/misc.h>
 #include <utils/printf.h>
@@ -25,6 +26,7 @@ struct kmalloc_page {
 };
 
 struct kmalloc_cache {
+  struct spinlock lock;
   uint16 block_size;  // cache中每块的大小
   struct kmalloc_page* current;
   struct kmalloc_page* partial;
@@ -92,10 +94,13 @@ static int leading_zeros(uint64 x) {
 // 初始化kmalloc内部的数据结构，需要在main里调用
 void kmallocinit(void) {
   for (int i = 0; i < NCACHE; ++i) {
+    initlock(&caches.kmalloc_cache_list[i].lock, "cache");
+    acquire(&caches.kmalloc_cache_list[i].lock);
     caches.kmalloc_cache_list[i].block_size = 1 << (i + 3);
     caches.kmalloc_cache_list[i].current = NULL;
     caches.kmalloc_cache_list[i].partial = NULL;
     caches.kmalloc_cache_list[i].full = NULL;
+    release(&caches.kmalloc_cache_list[i].lock);
   }
 }
 
@@ -125,6 +130,8 @@ void* kmalloc(uint64 sz) {
   uint64 cache_list_index = 64 - leading_zeros(roundup_sz) - 4;
   struct kmalloc_cache* cache = &caches.kmalloc_cache_list[cache_list_index];
 
+  acquire(&cache->lock);
+
   // current为空，分配一个新的页，将其初始化，并加入current中
   if (cache->current == NULL) {
     void* page = kalloc();
@@ -137,13 +144,13 @@ void* kmalloc(uint64 sz) {
 
   // 先从current中取出一个块
   struct kmalloc_block_head* mem = cache->current->firstfree;
-  cache->current->firstfree->nextfree = mem->nextfree;
+  cache->current->firstfree = mem->nextfree;
 
   // 若获取块后current已满
   if (cache->current->firstfree == NULL) {
     // 将其加入full链表
-    cache->current->next = cache->full->next;
-    cache->full->next = cache->current;
+    cache->current->next = cache->full;
+    cache->full = cache->current;
 
     // 并尝试从partial中选一个page进入current
     // 若partial为空
@@ -161,6 +168,8 @@ void* kmalloc(uint64 sz) {
     cache->partial = cache->partial->next;
   }
 
+  release(&cache->lock);
+
   // 返回分配的内存
   return (void*)mem;
 }
@@ -168,6 +177,8 @@ void* kmalloc(uint64 sz) {
 void kmfree(void* p) {
   // 判断指针指向的内存属于哪个cache，哪个链表（current/partial/full）
   for (int i = 0; i < NCACHE; ++i) {
+    acquire(&caches.kmalloc_cache_list[i].lock);
+
     struct kmalloc_page* pg;
 
     // 依次检查current页，以及遍历partial、full链表
@@ -177,11 +188,16 @@ void kmfree(void* p) {
 
     // 检查current页
     pg = current;
+    if (pg == NULL) {  // 该cache尚未被动用，直接找下一个cache
+      release(&caches.kmalloc_cache_list[i].lock);
+      continue;
+    }
     // 若指针属于current页内
     if (p >= pg->base && (uint64)p < (uint64)pg + PGSIZE) {
       struct kmalloc_block_head* blk_head = p;
       blk_head->nextfree = pg->firstfree;
       pg->firstfree = blk_head;
+      release(&caches.kmalloc_cache_list[i].lock);
       return;
     }
 
@@ -191,27 +207,37 @@ void kmfree(void* p) {
         struct kmalloc_block_head* blk_head = p;
         blk_head->nextfree = pg->firstfree;
         pg->firstfree = blk_head;
+        release(&caches.kmalloc_cache_list[i].lock);
         return;
       }
     }
 
     // 扫描full链表
-    struct kmalloc_page* prev_pg;
-    for (prev_pg = NULL, pg = full; NULL != pg;
-         pg = pg->next, prev_pg = prev_pg->next) {
+    struct kmalloc_page* prev_pg = NULL;
+    for (pg = full; NULL != pg; pg = pg->next) {
       if (p >= pg->base && (uint64)p < (uint64)pg + PGSIZE) {
         struct kmalloc_block_head* blk_head = p;
         blk_head->nextfree = pg->firstfree;
         pg->firstfree = blk_head;
 
-        // 现在该页有空闲空间了，将该页从full链表中删除
-        prev_pg->next = pg->next;
+        // 现在该页（pg）有空闲空间了，将该页从full链表中删除
+        // 若该页为full链表中的第一个页
+        if (NULL == prev_pg) {
+          caches.kmalloc_cache_list[i].full = pg->next;
+        } else {  // 若该页不是full链表的第一个页
+          prev_pg->next = pg->next;
+        }
 
         // 把该页放到partial链表中
         pg->next = partial;
-        caches.kmalloc_cache_list[i].partial->next = pg;
+        caches.kmalloc_cache_list[i].partial = pg;
+        release(&caches.kmalloc_cache_list[i].lock);
+        return;
       }
+      prev_pg = pg;
     }
+
+    release(&caches.kmalloc_cache_list[i].lock);
   }
 }
 
@@ -247,23 +273,24 @@ TEST(kmalloc, test_kmalloc) {
   TEST_ASSERT_NULL(kmalloc(0));
 
   // 0<sz<=2048
+  TEST_ASSERT_NULL(caches.kmalloc_cache_list[0].current);
   TEST_ASSERT_NOT_NULL(kmalloc(1));
-  TEST_ASSERT_NOT_NULL(kmalloc(1));
-  TEST_ASSERT_NOT_NULL(kmalloc(1));
+  TEST_ASSERT_NOT_NULL(caches.kmalloc_cache_list[0].current);
+
+  TEST_ASSERT_NULL(caches.kmalloc_cache_list[1].current);
   TEST_ASSERT_NOT_NULL(kmalloc(15));
-  TEST_ASSERT_NOT_NULL(kmalloc(15));
-  TEST_ASSERT_NOT_NULL(kmalloc(15));
-  TEST_ASSERT_NOT_NULL(kmalloc(514));
-  TEST_ASSERT_NOT_NULL(kmalloc(514));
+  TEST_ASSERT_NOT_NULL(caches.kmalloc_cache_list[1].current);
+
+  struct kmalloc_page* old_current = caches.kmalloc_cache_list[1].current;
+  for (int i = 0; i < 1000; ++i) {
+    kmalloc(15);
+  }
+  TEST_ASSERT_NOT_NULL(caches.kmalloc_cache_list[1].full);
+  TEST_ASSERT_NOT_EQUAL(caches.kmalloc_cache_list[1].current, old_current);
+
   TEST_ASSERT_NOT_NULL(kmalloc(514));
   TEST_ASSERT_NOT_NULL(kmalloc(1919));
-  TEST_ASSERT_NOT_NULL(kmalloc(1919));
-  TEST_ASSERT_NOT_NULL(kmalloc(1919));
   TEST_ASSERT_NOT_NULL(kmalloc(2047));
-  TEST_ASSERT_NOT_NULL(kmalloc(2047));
-  TEST_ASSERT_NOT_NULL(kmalloc(2047));
-  TEST_ASSERT_NOT_NULL(kmalloc(2048));
-  TEST_ASSERT_NOT_NULL(kmalloc(2048));
   TEST_ASSERT_NOT_NULL(kmalloc(2048));
 
   // sz>2048
@@ -271,14 +298,29 @@ TEST(kmalloc, test_kmalloc) {
   TEST_ASSERT_NULL(kmalloc(16384));
 }
 
+#define foreach_cache(index, list)                               \
+  do {                                                           \
+    struct kmalloc_page* pg;                                     \
+    for (pg = caches.kmalloc_cache_list[index].list; NULL != pg; \
+         pg = pg->next) {                                        \
+      printf("%p\n", pg);                                        \
+    }                                                            \
+  } while (0)
+
 TEST(kmalloc, test_kmfree) {
-  void* p;
-  for (int i = 0; i < PGSIZE / 15*500; i++) {
-    p = kmalloc(15);
+  void* p = kmalloc(32);
+  for (int i = 0; i < 130; i++) {
+    kmalloc(32);
   }
-  TEST_ASSERT_NOT_NULL(p);
+
+  TEST_ASSERT_NOT_NULL(caches.kmalloc_cache_list[2].full);
+  TEST_ASSERT_NULL(caches.kmalloc_cache_list[2].partial);
+
   kmfree(p);
-  TEST_ASSERT_EQUAL(caches.kmalloc_cache_list[1].partial, NULL);
+
+  TEST_ASSERT_NULL(caches.kmalloc_cache_list[2].full);
+  TEST_ASSERT_NOT_NULL(caches.kmalloc_cache_list[2].partial);
+  TEST_ASSERT_EQUAL(caches.kmalloc_cache_list[2].partial->firstfree, p);
 }
 
 #endif  // UNIT_TEST
