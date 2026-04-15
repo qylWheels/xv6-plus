@@ -155,6 +155,7 @@ UPROGS=\
 	$U/_dorphan\
 	$U/_physmem\
 	$U/_pgfault\
+	$U/_sysinfo\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
