@@ -1,6 +1,8 @@
 #ifndef _USER_H_
 #define _USER_H_
 
+#include <uapi/sysinfo/sysinfo.h>
+
 #define SBRK_ERROR ((char *)-1)
 
 struct stat;
