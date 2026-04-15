@@ -34,6 +34,7 @@ OBJS = \
 	$K/test/unity_fixture.o \
 	$K/mm/kmalloc.o \
 	$K/mm/test/test_runner.o \
+	$K/sysinfo/sysinfo.o \
 
 # riscv64-unknown-elf- or riscv64-linux-gnu-
 # perhaps in /opt/riscv/bin
@@ -154,6 +155,7 @@ UPROGS=\
 	$U/_dorphan\
 	$U/_physmem\
 	$U/_pgfault\
+	$U/_sysinfo\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)

@@ -1,6 +1,8 @@
 #ifndef _USER_H_
 #define _USER_H_
 
+#include <uapi/sysinfo/sysinfo.h>
+
 #define SBRK_ERROR ((char *)-1)
 
 struct stat;
@@ -31,6 +33,7 @@ int pause(int);
 int uptime(void);
 int physmem_info(struct physmem_info*);
 int pgfault_info(struct pgfault_info*);
+int sysinfo(const char* path, struct sysinfo* p);
 
 // ulib.c
 int stat(const char *, struct stat *);

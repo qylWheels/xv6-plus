@@ -25,6 +25,7 @@
 #define SYS_close 21
 #define SYS_physmem_info 22
 #define SYS_pgfault_info 23
+#define SYS_sysinfo 24
 
 #ifndef __ASSEMBLER__
 
