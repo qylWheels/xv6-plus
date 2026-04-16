@@ -39,9 +39,9 @@ struct spinlock wait_lock;
 
 void volun_switch_probe(void) {
   struct proc* p = myproc();
-  acquire(&p->lock);
+
+  // 无需上锁，因为该函数已被包裹在acquire(&p->lock)里了
   p->volun_switches += 1;
-  release(&p->lock);
 }
 
 // Allocate a page for each process's kernel stack.
