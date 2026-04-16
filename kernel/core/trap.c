@@ -30,10 +30,10 @@ void pgfault_probe(void) {
   release(&p->lock);
 }
 
-void switch_pb(void) {
+void involun_switch_pb(void) {
   struct proc* p = myproc();
   acquire(&p->lock);
-  p->switches += 1;
+  p->involun_switches += 1;
   release(&p->lock);
 }
 
@@ -50,8 +50,8 @@ void trapinit(void) {
   // 注册跟踪缺页异常的probe
   reg_trace_pgfault_probe(pgfault_probe);
 
-  // 注册跟踪进程切换次数的probe
-  reg_trace_swtch_probe(switch_pb);
+  // 注册跟踪进程被动抢占次数的probe
+  reg_trace_involun_switch_probe(involun_switch_pb);
 
   // 注册跟踪进程运行时长的probe
   reg_trace_tick_probe(tick_pb);
@@ -111,7 +111,7 @@ uint64 usertrap(void) {
 
   // give up the CPU if this is a timer interrupt.
   if (which_dev == 2) {
-    trace_swtch();
+    trace_involun_switch();
     trace_tick();
     yield();
   }
