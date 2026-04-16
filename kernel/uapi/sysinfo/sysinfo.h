@@ -5,6 +5,9 @@
 
 // 目前支持或计划支持的信息：
 // /
+// ├── proc/
+// │   └── sched/
+// │       └── self
 // └── memory/
 //     ├── phys
 //     └── virt/
@@ -12,6 +15,13 @@
 
 // 错误码
 #define EPATH 1  // 路径错误
+
+struct proc_sched_info {
+  uint64 total_ticks;
+  uint64 total_switches;
+  uint64 voluntary_switches;
+  uint64 involuntary_switches;
+};
 
 struct memory_phys_info {
   uint64 total_pgs;
@@ -27,6 +37,11 @@ struct memory_virt_info {
 
 struct sysinfo {
   union {
+    union {
+      union {
+        struct proc_sched_info self;
+      } sched;
+    } proc;
     union {
       struct memory_phys_info phys;
       union {
