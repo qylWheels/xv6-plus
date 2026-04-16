@@ -6,8 +6,11 @@
 // 跟踪进程缺页异常
 TRACE_DEFINE(pgfault, TRACE_PROTO(), TRACE_ARGS());
 
-// 跟踪进程调度
-TRACE_DEFINE(swtch, TRACE_PROTO(), TRACE_ARGS());
+// 跟踪进程主动让出
+TRACE_DEFINE(volun_switch, TRACE_PROTO(), TRACE_ARGS());
+
+// 跟踪进程被动抢占
+TRACE_DEFINE(involun_switch, TRACE_PROTO(), TRACE_ARGS());
 
 // 跟踪进程运行时长
 TRACE_DEFINE(tick, TRACE_PROTO(), TRACE_ARGS());
