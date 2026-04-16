@@ -6,7 +6,21 @@
 #include <utils/string.h>
 
 int ksysinfo(const char* path, struct sysinfo* p) {
-  if (0 == strcmp(path, "/memory/phys")) {
+  if (0 == strcmp(path, "/proc/sched/self")) {
+    struct proc* proc = myproc();
+    acquire(&proc->lock);
+    copyout(proc->pagetable, (uint64)&p->u.proc.sched.self.total_ticks,
+            (char*)&proc->ticks, sizeof(proc->ticks));
+    copyout(proc->pagetable, (uint64)&p->u.proc.sched.self.voluntary_switches,
+            (char*)&proc->volun_switches, sizeof(proc->volun_switches));
+    copyout(proc->pagetable, (uint64)&p->u.proc.sched.self.involuntary_switches,
+            (char*)&proc->involun_switches, sizeof(proc->involun_switches));
+    uint64 total_switches = proc->volun_switches + proc->involun_switches;
+    copyout(proc->pagetable, (uint64)&p->u.proc.sched.self.total_switches,
+            (char*)&total_switches, sizeof(total_switches));
+    release(&proc->lock);
+    return 0;
+  } else if (0 == strcmp(path, "/memory/phys")) {
     extern struct kmem kmem;
     extern int kalloc_times;
     extern struct spinlock kalloc_cnt_lock;
