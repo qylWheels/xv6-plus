@@ -12,6 +12,7 @@
 #include <mm/memlayout.h>
 #include <mm/vm.h>
 #include <sync/spinlock.h>
+#include <trace/events/core/trap.h>
 #include <utils/misc.h>
 #include <utils/printf.h>
 #include <utils/string.h>
@@ -36,6 +37,13 @@ extern char trampoline[];  // trampoline.S
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
 
+void volun_switch_probe(void) {
+  struct proc* p = myproc();
+  acquire(&p->lock);
+  p->volun_switches += 1;
+  release(&p->lock);
+}
+
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
 // guard page.
@@ -52,6 +60,9 @@ void proc_mapstacks(pagetable_t kpgtbl) {
 
 // initialize the proc table.
 void procinit(void) {
+  // 注册tracepoint
+  reg_trace_volun_switch_probe(volun_switch_probe);
+
   struct proc* p;
 
   initlock(&pid_lock, "nextpid");
@@ -519,6 +530,8 @@ void sleep(void* chan, struct spinlock* lk) {
 
   acquire(&p->lock);  // DOC: sleeplock1
   release(lk);
+
+  trace_volun_switch();
 
   // Go to sleep.
   p->chan = chan;
