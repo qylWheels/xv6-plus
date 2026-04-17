@@ -12,6 +12,7 @@
 #include <mm/memlayout.h>
 #include <mm/vm.h>
 #include <sync/spinlock.h>
+#include <trace/events/core/trap.h>
 #include <utils/misc.h>
 #include <utils/printf.h>
 #include <utils/string.h>
@@ -36,6 +37,13 @@ extern char trampoline[];  // trampoline.S
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
 
+void volun_switch_probe(void) {
+  struct proc* p = myproc();
+
+  // 无需上锁，因为该函数已被包裹在acquire(&p->lock)里了
+  p->volun_switches += 1;
+}
+
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
 // guard page.
@@ -52,6 +60,9 @@ void proc_mapstacks(pagetable_t kpgtbl) {
 
 // initialize the proc table.
 void procinit(void) {
+  // 注册tracepoint
+  reg_trace_volun_switch_probe(volun_switch_probe);
+
   struct proc* p;
 
   initlock(&pid_lock, "nextpid");
@@ -120,6 +131,9 @@ found:
   p->pid = allocpid();
   p->state = USED;
   p->pgfaults = 0;
+  p->ticks = 0;
+  p->volun_switches = 0;
+  p->involun_switches = 0;
 
   // Allocate a trapframe page.
   if ((p->trapframe = (struct trapframe*)kalloc()) == 0) {
@@ -162,6 +176,9 @@ static void freeproc(struct proc* p) {
   p->xstate = 0;
   p->state = UNUSED;
   p->pgfaults = 0;
+  p->ticks = 0;
+  p->volun_switches = 0;
+  p->involun_switches = 0;
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -513,6 +530,8 @@ void sleep(void* chan, struct spinlock* lk) {
 
   acquire(&p->lock);  // DOC: sleeplock1
   release(lk);
+
+  trace_volun_switch();
 
   // Go to sleep.
   p->chan = chan;

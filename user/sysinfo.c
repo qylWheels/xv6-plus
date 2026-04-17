@@ -1,3 +1,4 @@
+#include <uapi/fs/fcntl.h>
 #include <uapi/sysinfo/sysinfo.h>
 
 #include "user.h"
@@ -20,4 +21,30 @@ int main(int argc, char* argv[]) {
     exit(1);
   }
   printf("page fault count: %ld\n", s.u.memory.virt.self.pgfault_cnt);
+
+  pause(30);
+  for (int i = 0; i < 333; i++) {
+    int fd = open("./grep", O_RDONLY);
+    // printf("fd: %d\n", fd);
+    char buf[128];
+    read(fd, (void*)buf, sizeof(buf));
+    close(fd);
+  }
+  for (int i = 0; i < 1000; i++) {
+    for (int j = 0; j < 1000; j++) {
+      for (int k = 0; k < 1000; k++) {
+        mem[k] = i;
+      }
+    }
+  }
+  if (0 != sysinfo("/proc/sched/self", &s)) {
+    printf("sysinfo failed\n");
+    exit(1);
+  }
+  struct proc_sched_info pss = s.u.proc.sched.self;
+  printf("tick: %ld, vol_swtch: %ld, invol_swtch: %ld, total_swtch: %ld\n",
+         pss.total_ticks, pss.voluntary_switches, pss.involuntary_switches,
+         pss.total_switches);
+
+  return 0;
 }
