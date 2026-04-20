@@ -4,6 +4,7 @@
 #include <drivers/virtio_gpu.h>
 #include <mm/kalloc.h>
 #include <mm/memlayout.h>
+#include <sync/spinlock.h>
 #include <utils/printf.h>
 #include <utils/string.h>
 
@@ -90,22 +91,9 @@ struct virtio_gpu_ctrl_hdr {
   uint8 padding[3];
 };
 
-#define VIRTIO_GPU_MAX_SCANOUTS 16
-
-struct virtio_gpu_rect {
-  uint32 x;
-  uint32 y;
-  uint32 width;
-  uint32 height;
-};
-
 struct virtio_gpu_resp_display_info {
   struct virtio_gpu_ctrl_hdr hdr;
-  struct virtio_gpu_display_one {
-    struct virtio_gpu_rect r;
-    uint32 enabled;
-    uint32 flags;
-  } pmodes[VIRTIO_GPU_MAX_SCANOUTS];
+  struct virtio_gpu_display_one pmodes[VIRTIO_GPU_MAX_SCANOUTS];
 };
 
 struct queue {
@@ -119,7 +107,7 @@ struct queue {
 struct gpu {
   struct queue controlq;
   struct queue cursorq;
-  // TODO: 增加一个锁供os正常工作时使用
+  struct spinlock vgpu_lock;
 } gpu;
 
 // -1代表desc[]中的desc都正在被占用
@@ -156,12 +144,13 @@ static void free_desc_chain(struct queue* q, int idx) {
 
 // 初始化gpu结构体
 static void init_gpu_struct(void) {
-  gpu.controlq.last_used_idx = 0;
-  gpu.cursorq.last_used_idx = 0;
+  initlock(&gpu.vgpu_lock, "virtio-gpu-lock");
   for (int i = 0; i < MAX_QUEUE_SIZE; ++i) {
     gpu.controlq.free_desc[i] = 1;
     gpu.cursorq.free_desc[i] = 1;
   }
+  gpu.controlq.last_used_idx = 0;
+  gpu.cursorq.last_used_idx = 0;
 }
 
 void drivers_virtio_gpu_init(void) {
@@ -256,10 +245,18 @@ void drivers_virtio_gpu_init(void) {
   // 初始化设备：标志设备可用
   MMIO(VIRTIO_MMIO_STATUS) |= VIRTIO_CONFIG_S_DRIVER_OK;
 
-  // 获取virtio-gpu显示信息
+  return;
+}
+
+// 调用者必须实现准备好
+// sizeof(struct virtio_gpu_display_once[VIRTIO_GPU_MAX_SCANOUTS])
+// 大小的内存
+void drivers_virtio_gpu_get_display_info(struct virtio_gpu_display_one* arr) {
+  acquire(&gpu.vgpu_lock);
+
   int head_idx = alloc_desc(&gpu.controlq);    // 第一个空闲描述符索引
   int second_idx = alloc_desc(&gpu.controlq);  // 第二个索引
-  printf("head=%d,second=%d\n", head_idx, second_idx);
+  // printf("head=%d,second=%d\n", head_idx, second_idx);
   struct virtio_gpu_ctrl_hdr cmd_hdr = {0};
   cmd_hdr.type = VIRTIO_GPU_CMD_GET_DISPLAY_INFO;
   cmd_hdr.flags = VIRTIO_GPU_FLAG_FENCE;
@@ -304,13 +301,11 @@ void drivers_virtio_gpu_init(void) {
         // printf("resp_buf.hdr.type=0x%x\n", resp_buf.hdr.type);
         // 此时 resp_buf 已包含有效的显示信息
         for (int i = 0; i < VIRTIO_GPU_MAX_SCANOUTS; i++) {
-          uint32 ena = resp_buf.pmodes[i].enabled;
-          uint32 x = resp_buf.pmodes[i].r.x;
-          uint32 y = resp_buf.pmodes[i].r.y;
-          uint32 width = resp_buf.pmodes[i].r.width;
-          uint32 height = resp_buf.pmodes[i].r.height;
-          printf("ena=%u, x=%u, y=%u, width=%u, height=%u\n", ena, x, y, width,
-                 height);
+          arr[i].enabled = resp_buf.pmodes[i].enabled;
+          arr[i].r.x = resp_buf.pmodes[i].r.x;
+          arr[i].r.y = resp_buf.pmodes[i].r.y;
+          arr[i].r.width = resp_buf.pmodes[i].r.width;
+          arr[i].r.height = resp_buf.pmodes[i].r.height;
         }
       }
 
@@ -320,9 +315,9 @@ void drivers_virtio_gpu_init(void) {
       // 处理完毕，释放descs
       free_desc_chain(&gpu.controlq, head_idx);
 
+      release(&gpu.vgpu_lock);
+
       break;
     }
   }
-
-  return;
 }

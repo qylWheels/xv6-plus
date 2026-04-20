@@ -46,7 +46,16 @@ void main() {
     fileinit();                 // file table
     virtio_disk_init();         // emulated hard disk
     drivers_virtio_gpu_init();  // 初始化显卡
-    userinit();                 // first user process
+
+    struct virtio_gpu_display_one* arr =
+        kmalloc(sizeof(*arr) * VIRTIO_GPU_MAX_SCANOUTS);
+    drivers_virtio_gpu_get_display_info(arr);
+    for (int i = 0; i < VIRTIO_GPU_MAX_SCANOUTS; i++) {
+      printf("ena=%d, x=%d, y=%d, width=%d, height=%d\n", arr[i].enabled,
+             arr[i].r.x, arr[i].r.y, arr[i].r.width, arr[i].r.height);
+    }
+
+    userinit();  // first user process
     __sync_synchronize();
 
 // 如果定义了UNIT_TEST宏，则运行单元测试后停机
