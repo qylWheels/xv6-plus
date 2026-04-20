@@ -54,6 +54,9 @@ void main() {
       printf("ena=%d, x=%d, y=%d, width=%d, height=%d\n", arr[i].enabled,
              arr[i].r.x, arr[i].r.y, arr[i].r.width, arr[i].r.height);
     }
+    for (int i = 0; i < 1000; ++i) { // 压力！
+      drivers_virtio_gpu_create_2d_resource();
+    }
 
     userinit();  // first user process
     __sync_synchronize();
