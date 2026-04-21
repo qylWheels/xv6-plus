@@ -26,9 +26,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define UTHASH_VERSION 2.3.0
 
-#include <stddef.h> /* ptrdiff_t */
-#include <stdlib.h> /* exit */
-#include <string.h> /* memcmp, memset, strlen */
+#include <core/types.h> /* ptrdiff_t */
+#include <utils/printf.h> /* panic */
+#include <utils/string.h> /* memcmp, memset, strlen */
+#include <utils/misc.h> /* NULL */
+#include <mm/kmalloc.h> /* kmalloc, kmfree */
 
 #if defined(HASH_NO_STDINT) && HASH_NO_STDINT
 /* The user doesn't have <stdint.h>, and must figure out their own way
@@ -73,10 +75,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 #ifndef uthash_malloc
-#define uthash_malloc(sz) malloc(sz) /* malloc fcn                      */
+#define uthash_malloc(sz) kmalloc(sz) /* malloc fcn                      */
 #endif
 #ifndef uthash_free
-#define uthash_free(ptr, sz) free(ptr) /* free fcn                        */
+#define uthash_free(ptr, sz) kmfree(ptr) /* free fcn                        */
 #endif
 #ifndef uthash_bzero
 #define uthash_bzero(a, n) memset(a, '\0', n)
@@ -123,7 +125,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /* malloc failures result in lost memory, hash tables are unusable */
 
 #ifndef uthash_fatal
-#define uthash_fatal(msg) exit(-1) /* fatal OOM error */
+#define uthash_fatal(msg) panic("uthash fatal") /* fatal OOM error */
 #endif
 
 #define HASH_RECORD_OOM(oomed) uthash_fatal("out of memory")
@@ -545,7 +547,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define HASH_OOPS(...)            \
   do {                            \
     fprintf(stderr, __VA_ARGS__); \
-    exit(-1);                     \
+    panic("uthash oops");                     \
   } while (0)
 #define HASH_FSCK(hh, head, where)                                             \
   do {                                                                         \
