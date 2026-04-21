@@ -125,7 +125,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /* malloc failures result in lost memory, hash tables are unusable */
 
 #ifndef uthash_fatal
-#define uthash_fatal(msg) panic("uthash fatal") /* fatal OOM error */
+#define uthash_fatal(msg) panic("uthash: "msg) /* fatal OOM error */
 #endif
 
 #define HASH_RECORD_OOM(oomed) uthash_fatal("out of memory")
