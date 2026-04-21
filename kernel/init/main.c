@@ -53,7 +53,8 @@ void main() {
     drivers_virtio_gpu_set_scanout();
     int err;
     for (int i = 0; i < 64; i++) {
-      if (0 != (err = drivers_virtio_gpu_draw_pixel(4, i, 127, 221, 186, 255))) {
+      if (0 !=
+          (err = drivers_virtio_gpu_draw_pixel(i, 4, 127, 221, 186, 255))) {
         printf("err=%d\n", err);
       }
     }
