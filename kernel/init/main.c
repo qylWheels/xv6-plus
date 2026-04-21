@@ -47,10 +47,6 @@ void main() {
     virtio_disk_init();         // emulated hard disk
     drivers_virtio_gpu_init();  // 初始化显卡
 
-    drivers_virtio_gpu_get_display_info();
-    drivers_virtio_gpu_create_2d_resource();
-    drivers_virtio_gpu_attach_backing();
-    drivers_virtio_gpu_set_scanout();
     int err;
     for (int i = 0; i < 64; i++) {
       if (0 !=

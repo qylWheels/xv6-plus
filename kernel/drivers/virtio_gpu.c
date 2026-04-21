@@ -212,103 +212,8 @@ static void init_gpu_struct(void) {
   memset(&gpu.r, 0, sizeof(gpu.r));
 }
 
-void drivers_virtio_gpu_init(void) {
-  // 初始化gpu结构体先
-  init_gpu_struct();
-
-  // 检查magic和version
-  uint32 magic = MMIO(VIRTIO_MMIO_MAGIC_VALUE);
-  uint32 version = MMIO(VIRTIO_MMIO_VERSION);
-  if (0x74726976 != magic || 2 != version) {
-    panic("could not find virtio-gpu-device");
-  }
-
-  // 检查deviceid
-  uint32 deviceid = MMIO(VIRTIO_MMIO_DEVICE_ID);
-  if (0 == deviceid) {
-    panic("failed to initialize virtio-gpu-device");
-  }
-
-  // 初始化设备：reset
-  MMIO(VIRTIO_MMIO_STATUS) = 0;
-  while (MMIO(VIRTIO_MMIO_STATUS) != 0);
-
-  // 初始化设备：设置features
-  MMIO(VIRTIO_MMIO_STATUS) |= VIRTIO_CONFIG_S_ACKNOWLEDGE;
-  MMIO(VIRTIO_MMIO_STATUS) |= VIRTIO_CONFIG_S_DRIVER;
-  // uint32 device_features = MMIO(VIRTIO_MMIO_DEVICE_FEATURES);
-  // MMIO(VIRTIO_MMIO_DRIVER_FEATURES) = device_features;
-  MMIO(VIRTIO_MMIO_STATUS) |= VIRTIO_CONFIG_S_FEATURES_OK;
-  if (!(VIRTIO_CONFIG_S_FEATURES_OK & MMIO(VIRTIO_MMIO_STATUS))) {
-    panic("unsupported feature(s)");
-  }
-
-  // 初始化controlq
-  MMIO(VIRTIO_MMIO_QUEUE_SEL) = 0;
-  uint32 max_queue_size_controlq = MMIO(VIRTIO_MMIO_QUEUE_NUM_MAX);
-  if (0 == max_queue_size_controlq) {
-    panic("controlq's size=0");
-  }
-  if (MAX_QUEUE_SIZE > max_queue_size_controlq) {
-    panic("controlq's size is too small");
-  }
-  MMIO(VIRTIO_MMIO_QUEUE_NUM) = MAX_QUEUE_SIZE;
-  gpu.controlq.desc_ring = kalloc();
-  gpu.controlq.driver_ring = kalloc();
-  gpu.controlq.device_ring = kalloc();
-  if (!gpu.controlq.desc_ring || !gpu.controlq.driver_ring ||
-      !gpu.controlq.device_ring) {
-    panic("kalloc for controlq");
-  }
-  // printf("max controlq size=%d\n", max_queue_size);
-  memset((void*)gpu.controlq.desc_ring, 0, PGSIZE);
-  memset((void*)gpu.controlq.driver_ring, 0, PGSIZE);
-  memset((void*)gpu.controlq.device_ring, 0, PGSIZE);
-  MMIO(VIRTIO_MMIO_QUEUE_DESC_LOW) = (uint64)gpu.controlq.desc_ring;
-  MMIO(VIRTIO_MMIO_QUEUE_DESC_HIGH) = (uint64)gpu.controlq.desc_ring >> 32;
-  MMIO(VIRTIO_MMIO_DRIVER_DESC_LOW) = (uint64)gpu.controlq.driver_ring;
-  MMIO(VIRTIO_MMIO_DRIVER_DESC_HIGH) = (uint64)gpu.controlq.driver_ring >> 32;
-  MMIO(VIRTIO_MMIO_DEVICE_DESC_LOW) = (uint64)gpu.controlq.device_ring;
-  MMIO(VIRTIO_MMIO_DEVICE_DESC_HIGH) = (uint64)gpu.controlq.device_ring >> 32;
-  MMIO(VIRTIO_MMIO_QUEUE_READY) = 1;
-
-  // 初始化cursorq
-  MMIO(VIRTIO_MMIO_QUEUE_SEL) = 1;
-  uint32 max_queue_size_cursorq = MMIO(VIRTIO_MMIO_QUEUE_NUM_MAX);
-  if (0 == max_queue_size_cursorq) {
-    panic("cursorq's size=0");
-  }
-  if (MAX_QUEUE_SIZE > max_queue_size_cursorq) {
-    panic("cursorq's size is too small");
-  }
-  // printf("max cursorq size=%d\n", max_queue_size_cursorq);
-  MMIO(VIRTIO_MMIO_QUEUE_NUM) = MAX_QUEUE_SIZE;
-  gpu.cursorq.desc_ring = kalloc();
-  gpu.cursorq.driver_ring = kalloc();
-  gpu.cursorq.device_ring = kalloc();
-  if (!gpu.cursorq.desc_ring || !gpu.cursorq.driver_ring ||
-      !gpu.cursorq.device_ring) {
-    panic("kalloc for cursorq");
-  }
-  memset((void*)gpu.cursorq.desc_ring, 0, PGSIZE);
-  memset((void*)gpu.cursorq.driver_ring, 0, PGSIZE);
-  memset((void*)gpu.cursorq.device_ring, 0, PGSIZE);
-  MMIO(VIRTIO_MMIO_QUEUE_DESC_LOW) = (uint64)gpu.cursorq.desc_ring;
-  MMIO(VIRTIO_MMIO_QUEUE_DESC_HIGH) = (uint64)gpu.cursorq.desc_ring >> 32;
-  MMIO(VIRTIO_MMIO_DRIVER_DESC_LOW) = (uint64)gpu.cursorq.driver_ring;
-  MMIO(VIRTIO_MMIO_DRIVER_DESC_HIGH) = (uint64)gpu.cursorq.driver_ring >> 32;
-  MMIO(VIRTIO_MMIO_DEVICE_DESC_LOW) = (uint64)gpu.cursorq.device_ring;
-  MMIO(VIRTIO_MMIO_DEVICE_DESC_HIGH) = (uint64)gpu.cursorq.device_ring >> 32;
-  MMIO(VIRTIO_MMIO_QUEUE_READY) = 1;
-
-  // 初始化设备：标志设备可用
-  MMIO(VIRTIO_MMIO_STATUS) |= VIRTIO_CONFIG_S_DRIVER_OK;
-
-  return;
-}
-
 // 目前只支持一块屏幕
-void drivers_virtio_gpu_get_display_info(void) {
+static void drivers_virtio_gpu_get_display_info(void) {
   acquire(&gpu.vgpu_lock);
 
   int head_idx = alloc_desc(&gpu.controlq);    // 第一个空闲描述符索引
@@ -376,7 +281,7 @@ void drivers_virtio_gpu_get_display_info(void) {
 }
 
 // TODO: 现在只创建64*64像素的资源，后续要搞成通用的
-void drivers_virtio_gpu_create_2d_resource(void) {
+static void drivers_virtio_gpu_create_2d_resource(void) {
   acquire(&gpu.vgpu_lock);
 
   // 构造请求头
@@ -448,7 +353,7 @@ void drivers_virtio_gpu_create_2d_resource(void) {
 }
 
 // TODO: 现在只创建64*64像素的资源，后续要搞成通用的
-void drivers_virtio_gpu_attach_backing(void) {
+static void drivers_virtio_gpu_attach_backing(void) {
   acquire(&gpu.vgpu_lock);
 
   // 分配一个页对齐的内存区域用于存储像素
@@ -541,7 +446,7 @@ void drivers_virtio_gpu_attach_backing(void) {
 }
 
 // TODO: 现在只创建64*64个像素的资源，后续要搞成通用的
-void drivers_virtio_gpu_set_scanout(void) {
+static void drivers_virtio_gpu_set_scanout(void) {
   acquire(&gpu.vgpu_lock);
 
   struct virtio_gpu_ctrl_hdr hdr = {
@@ -619,8 +524,109 @@ void drivers_virtio_gpu_set_scanout(void) {
   }
 }
 
+void drivers_virtio_gpu_init(void) {
+  // 初始化gpu结构体先
+  init_gpu_struct();
+
+  // 检查magic和version
+  uint32 magic = MMIO(VIRTIO_MMIO_MAGIC_VALUE);
+  uint32 version = MMIO(VIRTIO_MMIO_VERSION);
+  if (0x74726976 != magic || 2 != version) {
+    panic("could not find virtio-gpu-device");
+  }
+
+  // 检查deviceid
+  uint32 deviceid = MMIO(VIRTIO_MMIO_DEVICE_ID);
+  if (0 == deviceid) {
+    panic("failed to initialize virtio-gpu-device");
+  }
+
+  // 初始化设备：reset
+  MMIO(VIRTIO_MMIO_STATUS) = 0;
+  while (MMIO(VIRTIO_MMIO_STATUS) != 0);
+
+  // 初始化设备：设置features
+  MMIO(VIRTIO_MMIO_STATUS) |= VIRTIO_CONFIG_S_ACKNOWLEDGE;
+  MMIO(VIRTIO_MMIO_STATUS) |= VIRTIO_CONFIG_S_DRIVER;
+  // uint32 device_features = MMIO(VIRTIO_MMIO_DEVICE_FEATURES);
+  // MMIO(VIRTIO_MMIO_DRIVER_FEATURES) = device_features;
+  MMIO(VIRTIO_MMIO_STATUS) |= VIRTIO_CONFIG_S_FEATURES_OK;
+  if (!(VIRTIO_CONFIG_S_FEATURES_OK & MMIO(VIRTIO_MMIO_STATUS))) {
+    panic("unsupported feature(s)");
+  }
+
+  // 初始化controlq
+  MMIO(VIRTIO_MMIO_QUEUE_SEL) = 0;
+  uint32 max_queue_size_controlq = MMIO(VIRTIO_MMIO_QUEUE_NUM_MAX);
+  if (0 == max_queue_size_controlq) {
+    panic("controlq's size=0");
+  }
+  if (MAX_QUEUE_SIZE > max_queue_size_controlq) {
+    panic("controlq's size is too small");
+  }
+  MMIO(VIRTIO_MMIO_QUEUE_NUM) = MAX_QUEUE_SIZE;
+  gpu.controlq.desc_ring = kalloc();
+  gpu.controlq.driver_ring = kalloc();
+  gpu.controlq.device_ring = kalloc();
+  if (!gpu.controlq.desc_ring || !gpu.controlq.driver_ring ||
+      !gpu.controlq.device_ring) {
+    panic("kalloc for controlq");
+  }
+  // printf("max controlq size=%d\n", max_queue_size);
+  memset((void*)gpu.controlq.desc_ring, 0, PGSIZE);
+  memset((void*)gpu.controlq.driver_ring, 0, PGSIZE);
+  memset((void*)gpu.controlq.device_ring, 0, PGSIZE);
+  MMIO(VIRTIO_MMIO_QUEUE_DESC_LOW) = (uint64)gpu.controlq.desc_ring;
+  MMIO(VIRTIO_MMIO_QUEUE_DESC_HIGH) = (uint64)gpu.controlq.desc_ring >> 32;
+  MMIO(VIRTIO_MMIO_DRIVER_DESC_LOW) = (uint64)gpu.controlq.driver_ring;
+  MMIO(VIRTIO_MMIO_DRIVER_DESC_HIGH) = (uint64)gpu.controlq.driver_ring >> 32;
+  MMIO(VIRTIO_MMIO_DEVICE_DESC_LOW) = (uint64)gpu.controlq.device_ring;
+  MMIO(VIRTIO_MMIO_DEVICE_DESC_HIGH) = (uint64)gpu.controlq.device_ring >> 32;
+  MMIO(VIRTIO_MMIO_QUEUE_READY) = 1;
+
+  // 初始化cursorq
+  MMIO(VIRTIO_MMIO_QUEUE_SEL) = 1;
+  uint32 max_queue_size_cursorq = MMIO(VIRTIO_MMIO_QUEUE_NUM_MAX);
+  if (0 == max_queue_size_cursorq) {
+    panic("cursorq's size=0");
+  }
+  if (MAX_QUEUE_SIZE > max_queue_size_cursorq) {
+    panic("cursorq's size is too small");
+  }
+  // printf("max cursorq size=%d\n", max_queue_size_cursorq);
+  MMIO(VIRTIO_MMIO_QUEUE_NUM) = MAX_QUEUE_SIZE;
+  gpu.cursorq.desc_ring = kalloc();
+  gpu.cursorq.driver_ring = kalloc();
+  gpu.cursorq.device_ring = kalloc();
+  if (!gpu.cursorq.desc_ring || !gpu.cursorq.driver_ring ||
+      !gpu.cursorq.device_ring) {
+    panic("kalloc for cursorq");
+  }
+  memset((void*)gpu.cursorq.desc_ring, 0, PGSIZE);
+  memset((void*)gpu.cursorq.driver_ring, 0, PGSIZE);
+  memset((void*)gpu.cursorq.device_ring, 0, PGSIZE);
+  MMIO(VIRTIO_MMIO_QUEUE_DESC_LOW) = (uint64)gpu.cursorq.desc_ring;
+  MMIO(VIRTIO_MMIO_QUEUE_DESC_HIGH) = (uint64)gpu.cursorq.desc_ring >> 32;
+  MMIO(VIRTIO_MMIO_DRIVER_DESC_LOW) = (uint64)gpu.cursorq.driver_ring;
+  MMIO(VIRTIO_MMIO_DRIVER_DESC_HIGH) = (uint64)gpu.cursorq.driver_ring >> 32;
+  MMIO(VIRTIO_MMIO_DEVICE_DESC_LOW) = (uint64)gpu.cursorq.device_ring;
+  MMIO(VIRTIO_MMIO_DEVICE_DESC_HIGH) = (uint64)gpu.cursorq.device_ring >> 32;
+  MMIO(VIRTIO_MMIO_QUEUE_READY) = 1;
+
+  // 初始化设备：标志设备可用
+  MMIO(VIRTIO_MMIO_STATUS) |= VIRTIO_CONFIG_S_DRIVER_OK;
+
+  // 其他初始化
+  drivers_virtio_gpu_get_display_info();
+  drivers_virtio_gpu_create_2d_resource();
+  drivers_virtio_gpu_attach_backing();
+  drivers_virtio_gpu_set_scanout();
+
+  return;
+}
+
 // TODO: 现在只创建64*64像素的资源，后续要搞成通用的
-void drivers_virtio_gpu_transfer_to_host_2d(int x, int y) {
+static void drivers_virtio_gpu_transfer_to_host_2d(int x, int y) {
   acquire(&gpu.vgpu_lock);
 
   // 构造传输请求
@@ -700,7 +706,7 @@ void drivers_virtio_gpu_transfer_to_host_2d(int x, int y) {
   }
 }
 
-void drivers_virtio_gpu_flush(void) {
+static void drivers_virtio_gpu_flush(void) {
   acquire(&gpu.vgpu_lock);
 
   struct virtio_gpu_ctrl_hdr hdr = {
