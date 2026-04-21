@@ -50,12 +50,13 @@ void main() {
     struct virtio_gpu_display_one* arr =
         kmalloc(sizeof(*arr) * VIRTIO_GPU_MAX_SCANOUTS);
     drivers_virtio_gpu_get_display_info(arr);
-    for (int i = 0; i < VIRTIO_GPU_MAX_SCANOUTS; i++) {
-      printf("ena=%d, x=%d, y=%d, width=%d, height=%d\n", arr[i].enabled,
-             arr[i].r.x, arr[i].r.y, arr[i].r.width, arr[i].r.height);
-    }
+    // for (int i = 0; i < VIRTIO_GPU_MAX_SCANOUTS; i++) {
+    //   printf("ena=%d, x=%d, y=%d, width=%d, height=%d\n", arr[i].enabled,
+    //          arr[i].r.x, arr[i].r.y, arr[i].r.width, arr[i].r.height);
+    // }
     drivers_virtio_gpu_create_2d_resource();
     drivers_virtio_gpu_attach_backing();
+    drivers_virtio_gpu_transfer_to_host_2d();
 
     userinit();  // first user process
     __sync_synchronize();

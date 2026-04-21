@@ -128,6 +128,14 @@ struct virtio_gpu_mem_entry {
   uint32 padding;
 };
 
+struct virtio_gpu_transfer_to_host_2d {
+  struct virtio_gpu_ctrl_hdr hdr;
+  struct virtio_gpu_rect r;  // 矩形区域
+  uint64 offset;             // 资源内偏移（字节）
+  uint32 resource_id;
+  uint32 padding;
+};
+
 struct queue {
   char free_desc[MAX_QUEUE_SIZE];   // 1为空闲，0为正在被使用
   struct virtq_desc* desc_ring;     // desc[]
@@ -141,6 +149,7 @@ struct gpu {
   struct queue controlq;
   struct queue cursorq;
   struct spinlock vgpu_lock;
+  uint32* backing_store;
 } gpu;
 
 // -1代表desc[]中的desc都正在被占用
@@ -434,6 +443,7 @@ void drivers_virtio_gpu_attach_backing(void) {
 
   // 分配一个页对齐的内存区域用于存储像素
   void* pixel_buffer = kalloc();
+  gpu.backing_store = pixel_buffer;
 
   // 请求头
   struct virtio_gpu_ctrl_hdr hdr = {
@@ -520,4 +530,89 @@ void drivers_virtio_gpu_attach_backing(void) {
   }
 }
 
-void drivers_virtio_gpu_draw_pixel();
+// TODO: 现在只创建一个像素的资源，后续要搞成通用的
+void drivers_virtio_gpu_transfer_to_host_2d(void) {
+  acquire(&gpu.vgpu_lock);
+
+  // 先将像素数据写入 backing buffer
+  uint32* pixel = gpu.backing_store;
+  *pixel = 0xff0000ff;
+
+  // 构造传输请求
+  struct virtio_gpu_ctrl_hdr hdr = {
+      .type = VIRTIO_GPU_CMD_TRANSFER_TO_HOST_2D,
+      .flags = VIRTIO_GPU_FLAG_FENCE,
+      .fence_id = 0,
+      .ctx_id = 0,
+      .ring_idx = 0,
+      .padding = {0},
+  };
+
+  struct virtio_gpu_transfer_to_host_2d req = {
+      .hdr = hdr,
+      .r =
+          {
+              .x = 0,
+              .y = 0,
+              .width = 1,
+              .height = 1,
+          },
+      .offset = 0,
+      .resource_id = 1,
+      .padding = 0,
+  };
+
+  struct virtio_gpu_ctrl_hdr resp = {0};
+
+  int head_idx = alloc_desc(&gpu.controlq);
+  int second_idx = alloc_desc(&gpu.controlq);
+
+  gpu.controlq.desc_ring[head_idx].addr = (uint64)&req;
+  gpu.controlq.desc_ring[head_idx].len = sizeof(req);
+  gpu.controlq.desc_ring[head_idx].flags = VRING_DESC_F_NEXT;
+  gpu.controlq.desc_ring[head_idx].next = second_idx;
+
+  gpu.controlq.desc_ring[second_idx].addr = (uint64)&resp;
+  gpu.controlq.desc_ring[second_idx].len = sizeof(resp);
+  gpu.controlq.desc_ring[second_idx].flags = VRING_DESC_F_WRITE;
+  gpu.controlq.desc_ring[second_idx].next = 0;
+
+  uint16 avail_idx = gpu.controlq.driver_ring->idx;
+  gpu.controlq.driver_ring->ring[avail_idx % NUM] =
+      head_idx;  // 放入描述符链头索引
+
+  __sync_synchronize();  // 确保 ring 写入完成再更新 idx【spec 2.7.13.3.1】
+  // 原子递增，使描述符对设备可见，不需要对NUM取余，因为取下标的时候会取余
+  gpu.controlq.driver_ring->idx++;
+  gpu.controlq.last_used_idx = gpu.controlq.device_ring->idx;
+  __sync_synchronize();  // 确保 idx 更新对设备可见【spec 2.7.13.4.1】
+  MMIO(VIRTIO_MMIO_QUEUE_NOTIFY) = 0;
+
+  while (1) {
+    __sync_synchronize();
+    if (gpu.controlq.device_ring->idx != gpu.controlq.last_used_idx) {
+      // 内存屏障：确保读取到最新的 used ring 内容【隐含在规范要求中】
+      __sync_synchronize();
+      uint16 used_pos = gpu.controlq.last_used_idx % MAX_QUEUE_SIZE;
+      struct virtq_used_elem* e = &gpu.controlq.device_ring->ring[used_pos];
+
+      // printf("e->id=%d, type=0x%x\n", e->id, resp.type);
+      if (e->id == head_idx && resp.type == VIRTIO_GPU_RESP_OK_NODATA) {
+        printf("transfer to host 2D successfully\n");
+      }
+
+      // 更新驱动本地指针，不用取余
+      gpu.controlq.last_used_idx++;
+
+      // 处理完毕，释放descs
+      free_desc_chain(&gpu.controlq, head_idx);
+
+      release(&gpu.vgpu_lock);
+
+      break;
+    }
+  }
+}
+
+void drivers_virtio_gpu_draw_pixel(int x, int y, uint8 r, uint8 g, uint8 b,
+                                   uint8 a);
