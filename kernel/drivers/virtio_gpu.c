@@ -8,11 +8,14 @@
 #include <sync/spinlock.h>
 #include <utils/printf.h>
 #include <utils/string.h>
+#include <utils/uthash.h>
+
+extern struct kmem kmem;  // FIXME: 仅用于debug
 
 #define VIRTIO_GPU_EVENT_DISPLAY (1 << 0)
 
 #define MMIO(offset) (*(volatile uint32*)(VIRTIO1 + (offset)))
-#define MAX_QUEUE_SIZE 128
+#define MAX_QUEUE_SIZE 1024
 
 // // which=desc/avail/used
 // #define QUEUE(which, p) ((struct virtq_##which*)p)
@@ -151,11 +154,19 @@ struct virtio_gpu_resource_flush {
 };
 
 struct queue {
-  char free_desc[MAX_QUEUE_SIZE];   // 1为空闲，0为正在被使用
-  struct virtq_desc* desc_ring;     // desc[]
+  char free_desc[MAX_QUEUE_SIZE];  // 1为空闲，0为正在被使用
+  // TODO: 权宜之计，扩展kmalloc可分配内存的上限才是正道
+  struct virtq_desc desc_ring[MAX_QUEUE_SIZE];  // desc[]
   struct virtq_avail* driver_ring;  // 只需一个，其中已经包含整个环形队列了
   struct virtq_used* device_ring;   // 依旧只需一个，其中包含整个环形队列
   uint32 last_used_idx;             // 最后一个处理完毕的device_ring的下标
+};
+
+struct backing_store_item {
+  uint32 idx;  // key
+  uint32* mem;
+  uint64 memsize;
+  UT_hash_handle hh;
 };
 
 struct gpu {
@@ -163,7 +174,7 @@ struct gpu {
   struct queue controlq;
   struct queue cursorq;
   struct spinlock vgpu_lock;
-  uint32* backing_store;
+  struct backing_store_item* backing_store_hashtable;
   struct virtio_gpu_rect r;  // 可显示的区域
 } gpu;
 
@@ -209,6 +220,7 @@ static void init_gpu_struct(void) {
   }
   gpu.controlq.last_used_idx = 0;
   gpu.cursorq.last_used_idx = 0;
+  gpu.backing_store_hashtable = NULL;
   memset(&gpu.r, 0, sizeof(gpu.r));
 }
 
@@ -280,7 +292,7 @@ static void drivers_virtio_gpu_get_display_info(void) {
   }
 }
 
-// TODO: 现在只创建64*64像素的资源，后续要搞成通用的
+// 创建2d资源
 static void drivers_virtio_gpu_create_2d_resource(void) {
   acquire(&gpu.vgpu_lock);
 
@@ -294,8 +306,8 @@ static void drivers_virtio_gpu_create_2d_resource(void) {
       .hdr = hdr,
       .resource_id = 1,  // 现在只有一个资源
       .format = VIRTIO_GPU_FORMAT_A8B8G8R8_UNORM,
-      .width = 64,  // 不能太小
-      .height = 64,
+      .width = gpu.r.width,
+      .height = gpu.r.height,
   };
   // printf("resid=%d\n", req.resource_id);
 
@@ -352,13 +364,20 @@ static void drivers_virtio_gpu_create_2d_resource(void) {
   }
 }
 
-// TODO: 现在只创建64*64像素的资源，后续要搞成通用的
+// 分配并将“显存”绑定到2d资源上
+// TODO: 权宜之计，扩展kmalloc可分配内存的上限才是正道
+#define LIST_SIZE (1280 * 800 * 4 / PGSIZE + 1)
+struct virtio_gpu_mem_entry* entry_list[LIST_SIZE] = {0};
+int idx_for_entries[LIST_SIZE] = {0};
 static void drivers_virtio_gpu_attach_backing(void) {
   acquire(&gpu.vgpu_lock);
 
-  // 分配一个页对齐的内存区域用于存储像素
-  void* pixel_buffer = kalloc();
-  gpu.backing_store = pixel_buffer;
+  uint32 width = gpu.r.width;
+  uint32 height = gpu.r.height;
+  uint32 nr_pixels = width * height;
+  // printf("nr_pixels=%d\n", nr_pixels);
+  uint32 nr_pages = nr_pixels * sizeof(uint32) / PGSIZE + 1;
+  uint32 nr_entries = nr_pages;
 
   // 请求头
   struct virtio_gpu_ctrl_hdr hdr = {
@@ -374,39 +393,61 @@ static void drivers_virtio_gpu_attach_backing(void) {
   struct virtio_gpu_resource_attach_backing req = {
       .hdr = hdr,
       // 目前只有一个res_id，为1，就用它
-      // TODO: 后续可能要做成hashtable的形式，将res_id和2d资源关联起来
       .resource_id = 1,
-      .nr_entries = 1,
+      .nr_entries = nr_entries,
   };
 
   // 内存条目
-  struct virtio_gpu_mem_entry entry = {
-      .addr = (uint64)pixel_buffer,
-      .length = PGSIZE,
-      .padding = 0,
-  };
+  for (uint32 i = 0; i < nr_pages; ++i) {
+    void* mem = kalloc();
+
+    struct virtio_gpu_mem_entry* entry = kmalloc(sizeof(*entry));
+    entry->addr = (uint64)mem;
+    entry->length = PGSIZE;
+    entry->padding = 0;
+    entry_list[i] = entry;
+
+    struct backing_store_item* item = kmalloc(sizeof(*item));
+    item->idx = i;
+    item->mem = mem;
+    item->memsize = PGSIZE;
+    HASH_ADD_INT(gpu.backing_store_hashtable, idx, item);
+    // printf("[i=%d] kmem.freepage=%ld\n", i, kmem.free);
+  }
 
   // 响应体
   struct virtio_gpu_ctrl_hdr resp = {0};
 
   int head_idx = alloc_desc(&gpu.controlq);
-  int second_idx = alloc_desc(&gpu.controlq);
-  int third_idx = alloc_desc(&gpu.controlq);
+
+  for (int i = 0; i < nr_entries; ++i) {
+    // printf("[i=%d] kmem.freepage=%ld\n", i, kmem.free);
+    int idx = alloc_desc(&gpu.controlq);
+    idx_for_entries[i] = idx;
+  }
+  int last_idx = alloc_desc(&gpu.controlq);
 
   gpu.controlq.desc_ring[head_idx].addr = (uint64)&req;
   gpu.controlq.desc_ring[head_idx].len = sizeof(req);
   gpu.controlq.desc_ring[head_idx].flags = 0 | VRING_DESC_F_NEXT;
-  gpu.controlq.desc_ring[head_idx].next = second_idx;
+  gpu.controlq.desc_ring[head_idx].next = idx_for_entries[0];
 
-  gpu.controlq.desc_ring[second_idx].addr = (uint64)&entry;
-  gpu.controlq.desc_ring[second_idx].len = sizeof(entry);
-  gpu.controlq.desc_ring[second_idx].flags = 0 | VRING_DESC_F_NEXT;
-  gpu.controlq.desc_ring[second_idx].next = third_idx;
+  for (int i = 0; i < nr_entries; ++i) {
+    // printf("[i=%d]\n", i);
+    gpu.controlq.desc_ring[idx_for_entries[i]].addr = (uint64)entry_list[i];
+    gpu.controlq.desc_ring[idx_for_entries[i]].len = sizeof(*entry_list[i]);
+    gpu.controlq.desc_ring[idx_for_entries[i]].flags = 0 | VRING_DESC_F_NEXT;
+    if (i < nr_entries - 1) {
+      gpu.controlq.desc_ring[idx_for_entries[i]].next = idx_for_entries[i + 1];
+    } else {
+      gpu.controlq.desc_ring[idx_for_entries[i]].next = last_idx;
+    }
+  }
 
-  gpu.controlq.desc_ring[third_idx].addr = (uint64)&resp;
-  gpu.controlq.desc_ring[third_idx].len = sizeof(resp);
-  gpu.controlq.desc_ring[third_idx].flags = 0 | VRING_DESC_F_WRITE;
-  gpu.controlq.desc_ring[third_idx].next = 0;
+  gpu.controlq.desc_ring[last_idx].addr = (uint64)&resp;
+  gpu.controlq.desc_ring[last_idx].len = sizeof(resp);
+  gpu.controlq.desc_ring[last_idx].flags = 0 | VRING_DESC_F_WRITE;
+  gpu.controlq.desc_ring[last_idx].next = 0;
 
   uint16 avail_idx = gpu.controlq.driver_ring->idx;
   gpu.controlq.driver_ring->ring[avail_idx % NUM] =
@@ -417,6 +458,7 @@ static void drivers_virtio_gpu_attach_backing(void) {
   gpu.controlq.driver_ring->idx++;
   gpu.controlq.last_used_idx = gpu.controlq.device_ring->idx;
   __sync_synchronize();  // 确保 idx 更新对设备可见【spec 2.7.13.4.1】
+  printf("ok\n");
   MMIO(VIRTIO_MMIO_QUEUE_NOTIFY) = 0;
 
   while (1) {
@@ -445,7 +487,7 @@ static void drivers_virtio_gpu_attach_backing(void) {
   }
 }
 
-// TODO: 现在只创建64*64个像素的资源，后续要搞成通用的
+// 设置要输出到的“屏幕”
 static void drivers_virtio_gpu_set_scanout(void) {
   acquire(&gpu.vgpu_lock);
 
@@ -464,9 +506,8 @@ static void drivers_virtio_gpu_set_scanout(void) {
           {
               .x = gpu.r.x,
               .y = gpu.r.y,
-              .width =
-                  64,  // 这里要跟创建2d资源时的宽高一样，且不能太小（比如1x1）
-              .height = 64,
+              .width = gpu.r.width,
+              .height = gpu.r.height,
           },
       .scanout_id = 0,  // 使用第一个 scanout
       .resource_id = 1,
@@ -524,6 +565,7 @@ static void drivers_virtio_gpu_set_scanout(void) {
   }
 }
 
+// 初始化gpu
 void drivers_virtio_gpu_init(void) {
   // 初始化gpu结构体先
   init_gpu_struct();
@@ -565,10 +607,10 @@ void drivers_virtio_gpu_init(void) {
     panic("controlq's size is too small");
   }
   MMIO(VIRTIO_MMIO_QUEUE_NUM) = MAX_QUEUE_SIZE;
-  gpu.controlq.desc_ring = kalloc();
+  // gpu.controlq.desc_ring = kalloc();
   gpu.controlq.driver_ring = kalloc();
   gpu.controlq.device_ring = kalloc();
-  if (!gpu.controlq.desc_ring || !gpu.controlq.driver_ring ||
+  if (/* !gpu.controlq.desc_ring || */ !gpu.controlq.driver_ring ||
       !gpu.controlq.device_ring) {
     panic("kalloc for controlq");
   }
@@ -595,10 +637,10 @@ void drivers_virtio_gpu_init(void) {
   }
   // printf("max cursorq size=%d\n", max_queue_size_cursorq);
   MMIO(VIRTIO_MMIO_QUEUE_NUM) = MAX_QUEUE_SIZE;
-  gpu.cursorq.desc_ring = kalloc();
+  // gpu.cursorq.desc_ring = kalloc();
   gpu.cursorq.driver_ring = kalloc();
   gpu.cursorq.device_ring = kalloc();
-  if (!gpu.cursorq.desc_ring || !gpu.cursorq.driver_ring ||
+  if (/* !gpu.cursorq.desc_ring || */ !gpu.cursorq.driver_ring ||
       !gpu.cursorq.device_ring) {
     panic("kalloc for cursorq");
   }
@@ -625,7 +667,7 @@ void drivers_virtio_gpu_init(void) {
   return;
 }
 
-// TODO: 现在只创建64*64像素的资源，后续要搞成通用的
+// 将数据传送给宿主机
 static void drivers_virtio_gpu_transfer_to_host_2d(int x, int y) {
   acquire(&gpu.vgpu_lock);
 
@@ -646,8 +688,8 @@ static void drivers_virtio_gpu_transfer_to_host_2d(int x, int y) {
           {
               .x = gpu.r.x,
               .y = gpu.r.y,
-              .width = 64,
-              .height = 64,
+              .width = gpu.r.width,
+              .height = gpu.r.height,
           },
       .offset = 0,
       .resource_id = 1,
@@ -706,6 +748,7 @@ static void drivers_virtio_gpu_transfer_to_host_2d(int x, int y) {
   }
 }
 
+// 刷新屏幕
 static void drivers_virtio_gpu_flush(void) {
   acquire(&gpu.vgpu_lock);
 
@@ -718,14 +761,15 @@ static void drivers_virtio_gpu_flush(void) {
       .padding = {0},
   };
 
+  // 为了方便，全屏刷新
   struct virtio_gpu_resource_flush req = {
       .hdr = hdr,
       .r =
           {
               .x = gpu.r.x,
               .y = gpu.r.y,
-              .width = 64,
-              .height = 64,
+              .width = gpu.r.width,
+              .height = gpu.r.height,
           },
       .resource_id = 1,
       .padding = 0,
@@ -786,13 +830,19 @@ static void drivers_virtio_gpu_flush(void) {
 #define RGBA(r, g, b, a) (((r) << 24) | ((g) << 16) | ((b) << 8) | (a))
 #define ERANGE 1
 
+// 向指定位置打印一个像素
 int drivers_virtio_gpu_draw_pixel(int x, int y, uint8 r, uint8 g, uint8 b,
                                   uint8 a) {
   if (x >= gpu.r.x + gpu.r.width || y >= gpu.r.y + gpu.r.height) {
     return -ERANGE;
   }
-  uint32* fb = gpu.backing_store;
-  *(fb + y * 64 + x) = RGBA(r, g, b, a);
+  uint32 offset_pixel = y * 64 + x;
+  uint32 page_idx = offset_pixel * sizeof(uint32) / PGSIZE;
+  uint32 page_offset_byte = offset_pixel * sizeof(uint32) - page_idx * PGSIZE;
+  uint32 page_offset_pixel = page_offset_byte / sizeof(uint32);
+  struct backing_store_item* item;
+  HASH_FIND_INT(gpu.backing_store_hashtable, &page_idx, item);
+  *(item->mem + page_offset_pixel) = RGBA(r, g, b, a);
   __sync_synchronize();
   drivers_virtio_gpu_transfer_to_host_2d(x, y);
   drivers_virtio_gpu_flush();

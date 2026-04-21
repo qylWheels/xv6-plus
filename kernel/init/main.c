@@ -48,9 +48,9 @@ void main() {
     drivers_virtio_gpu_init();  // 初始化显卡
 
     int err;
-    for (int i = 0; i < 64; i++) {
+    for (int i = 0; i < 1280; i++) {
       if (0 !=
-          (err = drivers_virtio_gpu_draw_pixel(i, 4, 127, 221, 186, 255))) {
+          (err = drivers_virtio_gpu_draw_pixel(i,10, 233, 68, 17, 255))) {
         printf("err=%d\n", err);
       }
     }
