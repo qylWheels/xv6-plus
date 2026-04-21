@@ -787,6 +787,7 @@ int drivers_virtio_gpu_draw_pixel(int x, int y, uint8 r, uint8 g, uint8 b,
   }
   uint32* fb = gpu.backing_store;
   *(fb + y * 64 + x) = RGBA(r, g, b, a);
+  __sync_synchronize();
   drivers_virtio_gpu_transfer_to_host_2d(x, y);
   drivers_virtio_gpu_flush();
   return 0;
