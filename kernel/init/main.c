@@ -58,6 +58,7 @@ void main() {
     drivers_virtio_gpu_attach_backing();
     drivers_virtio_gpu_transfer_to_host_2d();
     drivers_virtio_gpu_set_scanout();
+    drivers_virtio_gpu_flush();
 
     userinit();  // first user process
     __sync_synchronize();
