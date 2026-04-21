@@ -57,6 +57,7 @@ void main() {
     drivers_virtio_gpu_create_2d_resource();
     drivers_virtio_gpu_attach_backing();
     drivers_virtio_gpu_transfer_to_host_2d();
+    drivers_virtio_gpu_set_scanout();
 
     userinit();  // first user process
     __sync_synchronize();

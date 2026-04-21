@@ -23,5 +23,6 @@ void drivers_virtio_gpu_get_display_info(struct virtio_gpu_display_one* arr);
 void drivers_virtio_gpu_create_2d_resource(void);
 void drivers_virtio_gpu_attach_backing(void);
 void drivers_virtio_gpu_transfer_to_host_2d(void);
+void drivers_virtio_gpu_set_scanout(void);
 
 #endif  // _DRIVERS_VIRTIO_GPU_H_
