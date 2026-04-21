@@ -388,7 +388,7 @@ void drivers_virtio_gpu_create_2d_resource(void) {
   struct virtio_gpu_resource_create_2d req = {
       .hdr = hdr,
       .resource_id = 1,  // 现在只有一个资源
-      .format = VIRTIO_GPU_FORMAT_R8G8B8A8_UNORM,
+      .format = VIRTIO_GPU_FORMAT_A8B8G8R8_UNORM,
       .width = 64,  // 不能太小
       .height = 64,
   };

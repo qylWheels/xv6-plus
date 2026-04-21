@@ -52,8 +52,10 @@ void main() {
     drivers_virtio_gpu_attach_backing();
     drivers_virtio_gpu_set_scanout();
     int err;
-    if (0 != (err = drivers_virtio_gpu_draw_pixel(15, 45, 114, 51, 4, 200))) {
-      printf("err=%d\n",err);
+    for (int i = 0; i < 64; i++) {
+      if (0 != (err = drivers_virtio_gpu_draw_pixel(4, i, 127, 221, 186, 255))) {
+        printf("err=%d\n", err);
+      }
     }
 
     userinit();  // first user process
