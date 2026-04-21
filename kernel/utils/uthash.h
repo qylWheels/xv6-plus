@@ -26,11 +26,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define UTHASH_VERSION 2.3.0
 
-#include <core/types.h> /* ptrdiff_t */
+#include <core/types.h>   /* ptrdiff_t */
+#include <mm/kalloc.h>    /* kalloc, kfree */
+#include <mm/kmalloc.h>   /* kmalloc, kmfree */
+#include <utils/misc.h>   /* NULL */
 #include <utils/printf.h> /* panic */
 #include <utils/string.h> /* memcmp, memset, strlen */
-#include <utils/misc.h> /* NULL */
-#include <mm/kmalloc.h> /* kmalloc, kmfree */
 
 #if defined(HASH_NO_STDINT) && HASH_NO_STDINT
 /* The user doesn't have <stdint.h>, and must figure out their own way
@@ -74,11 +75,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   } while (0)
 #endif
 
+// FIXME: kmalloc分配不了太大的内存，只能用kalloc暂时顶住
+// 但后续一定要实现能分配更大内存的接口
 #ifndef uthash_malloc
-#define uthash_malloc(sz) kmalloc(sz) /* malloc fcn                      */
+#define uthash_malloc(sz) \
+  ((sz) <= PGSIZE ? kalloc() : 0) /* malloc fcn */
 #endif
 #ifndef uthash_free
-#define uthash_free(ptr, sz) kmfree(ptr) /* free fcn                        */
+#define uthash_free(ptr, sz) kfree(ptr) /* free fcn                        */
 #endif
 #ifndef uthash_bzero
 #define uthash_bzero(a, n) memset(a, '\0', n)
@@ -125,7 +129,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /* malloc failures result in lost memory, hash tables are unusable */
 
 #ifndef uthash_fatal
-#define uthash_fatal(msg) panic("uthash: "msg) /* fatal OOM error */
+#define uthash_fatal(msg) panic("uthash: " msg) /* fatal OOM error */
 #endif
 
 #define HASH_RECORD_OOM(oomed) uthash_fatal("out of memory")
@@ -134,10 +138,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 /* initial number of buckets */
-#define HASH_INITIAL_NUM_BUCKETS 32U     /* initial number of buckets        */
-#define HASH_INITIAL_NUM_BUCKETS_LOG2 5U /* lg2 of initial number of buckets \
-                                          */
-#define HASH_BKT_CAPACITY_THRESH 10U     /* expand when bucket count reaches */
+#define HASH_INITIAL_NUM_BUCKETS 32U /* initial number of buckets        */
+#define HASH_INITIAL_NUM_BUCKETS_LOG2                                    \
+  5U                                 /* lg2 of initial number of buckets \
+                                      */
+#define HASH_BKT_CAPACITY_THRESH 10U /* expand when bucket count reaches */
 
 /* calculate the element whose hash handle address is hhp */
 #define ELMT_FROM_HH(tbl, hhp) ((void*)(((char*)(hhp)) - ((tbl)->hho)))
@@ -547,7 +552,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define HASH_OOPS(...)            \
   do {                            \
     fprintf(stderr, __VA_ARGS__); \
-    panic("uthash oops");                     \
+    panic("uthash oops");         \
   } while (0)
 #define HASH_FSCK(hh, head, where)                                             \
   do {                                                                         \
