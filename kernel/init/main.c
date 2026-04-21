@@ -47,18 +47,14 @@ void main() {
     virtio_disk_init();         // emulated hard disk
     drivers_virtio_gpu_init();  // 初始化显卡
 
-    struct virtio_gpu_display_one* arr =
-        kmalloc(sizeof(*arr) * VIRTIO_GPU_MAX_SCANOUTS);
-    drivers_virtio_gpu_get_display_info(arr);
-    // for (int i = 0; i < VIRTIO_GPU_MAX_SCANOUTS; i++) {
-    //   printf("ena=%d, x=%d, y=%d, width=%d, height=%d\n", arr[i].enabled,
-    //          arr[i].r.x, arr[i].r.y, arr[i].r.width, arr[i].r.height);
-    // }
+    drivers_virtio_gpu_get_display_info();
     drivers_virtio_gpu_create_2d_resource();
     drivers_virtio_gpu_attach_backing();
-    drivers_virtio_gpu_transfer_to_host_2d();
     drivers_virtio_gpu_set_scanout();
-    drivers_virtio_gpu_flush();
+    int err;
+    if (0 != (err = drivers_virtio_gpu_draw_pixel(15, 45, 114, 51, 4, 200))) {
+      printf("err=%d\n",err);
+    }
 
     userinit();  // first user process
     __sync_synchronize();
