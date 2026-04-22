@@ -689,15 +689,15 @@ static void drivers_virtio_gpu_transfer_to_host_2d(int x, int y) {
       .padding = {0},
   };
 
-  // 为了简单，刷新整个屏幕
+  // 只刷新一个像素
   struct virtio_gpu_transfer_to_host_2d req = {
       .hdr = hdr,
       .r =
           {
-              .x = gpu.r.x,
-              .y = gpu.r.y,
-              .width = gpu.r.width,
-              .height = gpu.r.height,
+              .x = x,
+              .y = y,
+              .width = 1,
+              .height = 1,
           },
       .offset = 0,
       .resource_id = 1,
@@ -769,15 +769,15 @@ static void drivers_virtio_gpu_flush(int x, int y) {
       .padding = {0},
   };
 
-  // 为了方便，全屏刷新
+  // 只刷新一个像素
   struct virtio_gpu_resource_flush req = {
       .hdr = hdr,
       .r =
           {
-              .x = gpu.r.x,
-              .y = gpu.r.y,
-              .width = gpu.r.width,
-              .height = gpu.r.height,
+              .x = x,
+              .y = y,
+              .width = 1,
+              .height = 1,
           },
       .resource_id = 1,
       .padding = 0,

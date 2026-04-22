@@ -48,12 +48,20 @@ void main() {
     drivers_virtio_gpu_init();  // 初始化显卡
 
     int err;
-    for (int i = 0; i < 1280; i++) {
-      // printf("i=%d\n",i);
-      if (0 != (err = drivers_virtio_gpu_draw_pixel(i, 0, 233, 68, 17, 255))) {
-        printf("err=%d\n", err);
+    for (int i = 0; i < 800; i++) {
+      for (int j = 0; j < 800; j++) {
+        if (i == j && 0 != (err = drivers_virtio_gpu_draw_pixel(i, j, 233, 168,
+                                                                17, 255))) {
+          printf("err=%d\n", err);
+        }
       }
     }
+    // for (int i = 0; i < 640; i++) {
+    //   if (0 != (err = drivers_virtio_gpu_draw_pixel(i, 0, 233, 168, 17,
+    //   255))) {
+    //     printf("err=%d\n", err);
+    //   }
+    // }
 
     userinit();  // first user process
     __sync_synchronize();
