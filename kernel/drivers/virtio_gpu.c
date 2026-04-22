@@ -500,6 +500,8 @@ static void drivers_virtio_gpu_set_scanout(void) {
       .padding = {0},
   };
 
+  // printf("x=%d, y=%d, width=%d, height=%d\n", gpu.r.x, gpu.r.y, gpu.r.width,
+  //        gpu.r.height);
   struct virtio_gpu_set_scanout req = {
       .hdr = hdr,
       .r =
@@ -590,8 +592,14 @@ void drivers_virtio_gpu_init(void) {
   // 初始化设备：设置features
   MMIO(VIRTIO_MMIO_STATUS) |= VIRTIO_CONFIG_S_ACKNOWLEDGE;
   MMIO(VIRTIO_MMIO_STATUS) |= VIRTIO_CONFIG_S_DRIVER;
-  // uint32 device_features = MMIO(VIRTIO_MMIO_DEVICE_FEATURES);
-  // MMIO(VIRTIO_MMIO_DRIVER_FEATURES) = device_features;
+  uint32 device_features = MMIO(VIRTIO_MMIO_DEVICE_FEATURES);
+  if (device_features & (1 << VIRTIO_RING_F_INDIRECT_DESC)) {
+    printf("indirect desc supported\n");
+  } else {
+    printf("indirect desc NOT supported\n");
+  }
+  MMIO(VIRTIO_MMIO_DRIVER_FEATURES) |=
+      VIRTIO_RING_F_INDIRECT_DESC;  // 使用间接描述符
   MMIO(VIRTIO_MMIO_STATUS) |= VIRTIO_CONFIG_S_FEATURES_OK;
   if (!(VIRTIO_CONFIG_S_FEATURES_OK & MMIO(VIRTIO_MMIO_STATUS))) {
     panic("unsupported feature(s)");
@@ -749,7 +757,7 @@ static void drivers_virtio_gpu_transfer_to_host_2d(int x, int y) {
 }
 
 // 刷新屏幕
-static void drivers_virtio_gpu_flush(void) {
+static void drivers_virtio_gpu_flush(int x, int y) {
   acquire(&gpu.vgpu_lock);
 
   struct virtio_gpu_ctrl_hdr hdr = {
@@ -836,7 +844,7 @@ int drivers_virtio_gpu_draw_pixel(int x, int y, uint8 r, uint8 g, uint8 b,
   if (x >= gpu.r.x + gpu.r.width || y >= gpu.r.y + gpu.r.height) {
     return -ERANGE;
   }
-  uint32 offset_pixel = y * 64 + x;
+  uint32 offset_pixel = y * gpu.r.width + x;
   uint32 page_idx = offset_pixel * sizeof(uint32) / PGSIZE;
   uint32 page_offset_byte = offset_pixel * sizeof(uint32) - page_idx * PGSIZE;
   uint32 page_offset_pixel = page_offset_byte / sizeof(uint32);
@@ -845,6 +853,6 @@ int drivers_virtio_gpu_draw_pixel(int x, int y, uint8 r, uint8 g, uint8 b,
   *(item->mem + page_offset_pixel) = RGBA(r, g, b, a);
   __sync_synchronize();
   drivers_virtio_gpu_transfer_to_host_2d(x, y);
-  drivers_virtio_gpu_flush();
+  drivers_virtio_gpu_flush(x, y);
   return 0;
 }

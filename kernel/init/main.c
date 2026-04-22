@@ -49,8 +49,8 @@ void main() {
 
     int err;
     for (int i = 0; i < 1280; i++) {
-      if (0 !=
-          (err = drivers_virtio_gpu_draw_pixel(i,10, 233, 68, 17, 255))) {
+      // printf("i=%d\n",i);
+      if (0 != (err = drivers_virtio_gpu_draw_pixel(i, 0, 233, 68, 17, 255))) {
         printf("err=%d\n", err);
       }
     }
