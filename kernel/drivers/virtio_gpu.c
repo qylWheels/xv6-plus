@@ -10,15 +10,9 @@
 #include <utils/string.h>
 #include <utils/uthash.h>
 
-extern struct kmem kmem;  // FIXME: 仅用于debug
-
 #define VIRTIO_GPU_EVENT_DISPLAY (1 << 0)
 
 #define MMIO(offset) (*(volatile uint32*)(VIRTIO1 + (offset)))
-// #define MAX_QUEUE_SIZE 1024
-
-// // which=desc/avail/used
-// #define QUEUE(which, p) ((struct virtq_##which*)p)
 
 struct virtio_gpu_config {
   uint32 events_read;
@@ -256,12 +250,8 @@ static void drivers_virtio_gpu_get_display_info(void) {
   __sync_synchronize();  // 确保 idx 更新对设备可见【spec 2.7.13.4.1】
   MMIO(VIRTIO_MMIO_QUEUE_NOTIFY) = 0;
 
-  // panic("break");
-
   // 驱动在中断处理或轮询中检查 used->idx 是否变化
   while (1) {
-    // printf("device->used=%d, last_used=%d\n",
-    //        QUEUE(used, device_area_controlq)->idx, last_used_idx);
     __sync_synchronize();
     if (gpu.controlq.device_ring->idx != gpu.controlq.last_used_idx) {
       // 内存屏障：确保读取到最新的 used ring 内容【隐含在规范要求中】
@@ -309,7 +299,6 @@ static void drivers_virtio_gpu_create_2d_resource(void) {
       .width = gpu.r.width,
       .height = gpu.r.height,
   };
-  // printf("resid=%d\n", req.resource_id);
 
   // 构造响应结构体
   struct virtio_gpu_ctrl_hdr resp = {0};
@@ -375,7 +364,6 @@ static void drivers_virtio_gpu_attach_backing(void) {
   uint32 width = gpu.r.width;
   uint32 height = gpu.r.height;
   uint32 nr_pixels = width * height;
-  // printf("nr_pixels=%d\n", nr_pixels);
   uint32 nr_pages = nr_pixels * sizeof(uint32) / PGSIZE + 1;
   uint32 nr_entries = nr_pages;
 
@@ -412,7 +400,6 @@ static void drivers_virtio_gpu_attach_backing(void) {
     item->mem = mem;
     item->memsize = PGSIZE;
     HASH_ADD_INT(gpu.backing_store_hashtable, idx, item);
-    // printf("[i=%d] kmem.freepage=%ld\n", i, kmem.free);
   }
 
   // 响应体
@@ -428,7 +415,6 @@ static void drivers_virtio_gpu_attach_backing(void) {
   gpu.controlq.desc_ring[head_idx].next = second_idx;
 
   for (int i = 0; i < nr_entries; ++i) {
-    // printf("[i=%d]\n", i);
     indirect_descs[i].addr = (uint64)entry_list[i];
     indirect_descs[i].len = sizeof(*entry_list[i]);
     if (i < nr_entries - 1) {
@@ -502,8 +488,6 @@ static void drivers_virtio_gpu_set_scanout(void) {
       .padding = {0},
   };
 
-  // printf("x=%d, y=%d, width=%d, height=%d\n", gpu.r.x, gpu.r.y, gpu.r.width,
-  //        gpu.r.height);
   struct virtio_gpu_set_scanout req = {
       .hdr = hdr,
       .r =
@@ -624,7 +608,6 @@ void drivers_virtio_gpu_init(void) {
       !gpu.controlq.device_ring) {
     panic("kalloc for controlq");
   }
-  // printf("max controlq size=%d\n", max_queue_size);
   memset((void*)gpu.controlq.desc_ring, 0, PGSIZE);
   memset((void*)gpu.controlq.driver_ring, 0, PGSIZE);
   memset((void*)gpu.controlq.device_ring, 0, PGSIZE);
@@ -645,7 +628,6 @@ void drivers_virtio_gpu_init(void) {
   if (NUM > max_queue_size_cursorq) {
     panic("cursorq's size is too small");
   }
-  // printf("max cursorq size=%d\n", max_queue_size_cursorq);
   MMIO(VIRTIO_MMIO_QUEUE_NUM) = NUM;
   gpu.cursorq.desc_ring = kalloc();
   gpu.cursorq.driver_ring = kalloc();
@@ -668,12 +650,6 @@ void drivers_virtio_gpu_init(void) {
   // 初始化设备：标志设备可用
   MMIO(VIRTIO_MMIO_STATUS) |= VIRTIO_CONFIG_S_DRIVER_OK;
 
-  // FIXME: 仅用于debug
-  // for (int i = 0; i < 100000; i++) {
-  //   printf("gpu.controlq.driver_ring->idx=%d\n",
-  //   gpu.controlq.driver_ring->idx); gpu.controlq.driver_ring->idx++;
-  // }
-
   // 其他初始化
   drivers_virtio_gpu_get_display_info();
   drivers_virtio_gpu_create_2d_resource();
@@ -686,8 +662,6 @@ void drivers_virtio_gpu_init(void) {
 // 将数据传送给宿主机
 static void drivers_virtio_gpu_transfer_to_host_2d(int x, int y) {
   acquire(&gpu.vgpu_lock);
-
-  // printf("[2d] driver_ring.idx=%d\n", gpu.controlq.driver_ring->idx);
 
   // 构造传输请求
   struct virtio_gpu_ctrl_hdr hdr = {
@@ -823,9 +797,7 @@ static void drivers_virtio_gpu_flush(int x, int y) {
 
   while (1) {
     __sync_synchronize();
-    printf("[flush] driver_ring.idx=%d \n", gpu.controlq.driver_ring->idx);
     if (gpu.controlq.device_ring->idx != gpu.controlq.last_used_idx) {
-      printf("[flush] driver_ring.idx=%d \n", gpu.controlq.driver_ring->idx);
       // 内存屏障：确保读取到最新的 used ring 内容【隐含在规范要求中】
       __sync_synchronize();
       uint16 used_pos = gpu.controlq.last_used_idx % NUM;
