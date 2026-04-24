@@ -266,7 +266,7 @@ static void drivers_virtio_gpu_get_display_info(void) {
         gpu.r.y = resp_buf.pmodes[0].r.y;
         gpu.r.width = resp_buf.pmodes[0].r.width;
         gpu.r.height = resp_buf.pmodes[0].r.height;
-        printf("get display info successfully\n");
+        // printf("get display info successfully\n");
       }
 
       // 更新驱动本地指针，不用取余
@@ -337,7 +337,7 @@ static void drivers_virtio_gpu_create_2d_resource(void) {
       struct virtq_used_elem* e = &gpu.controlq.device_ring->ring[used_pos];
 
       if (e->id == head_idx && resp.type == VIRTIO_GPU_RESP_OK_NODATA) {
-        printf("create 2D resouce successfully\n");
+        // printf("create 2D resouce successfully\n");
       }
 
       // 更新驱动本地指针，不用取余
@@ -447,7 +447,7 @@ static void drivers_virtio_gpu_attach_backing(void) {
   gpu.controlq.driver_ring->idx++;
   gpu.controlq.last_used_idx = gpu.controlq.device_ring->idx;
   __sync_synchronize();  // 确保 idx 更新对设备可见【spec 2.7.13.4.1】
-  printf("ok\n");
+  // printf("ok\n");
   MMIO(VIRTIO_MMIO_QUEUE_NOTIFY) = 0;
 
   while (1) {
@@ -460,7 +460,7 @@ static void drivers_virtio_gpu_attach_backing(void) {
 
       // printf("e->id=%d, type=0x%x\n", e->id, resp.type);
       if (e->id == head_idx && resp.type == VIRTIO_GPU_RESP_OK_NODATA) {
-        printf("attach backing memory successfully\n");
+        // printf("attach backing memory successfully\n");
       }
 
       // 更新驱动本地指针，不用取余
@@ -538,7 +538,7 @@ static void drivers_virtio_gpu_set_scanout(void) {
 
       // printf("e->id=%d, type=0x%x\n", e->id, resp.type);
       if (e->id == head_idx && resp.type == VIRTIO_GPU_RESP_OK_NODATA) {
-        printf("set scanout successfully\n");
+        // printf("set scanout successfully\n");
       }
 
       // 更新驱动本地指针，不用取余
@@ -581,9 +581,9 @@ void drivers_virtio_gpu_init(void) {
   MMIO(VIRTIO_MMIO_STATUS) |= VIRTIO_CONFIG_S_DRIVER;
   uint32 device_features = MMIO(VIRTIO_MMIO_DEVICE_FEATURES);
   if (device_features & (1 << VIRTIO_RING_F_INDIRECT_DESC)) {
-    printf("indirect desc supported\n");
+    // printf("indirect desc supported\n");
   } else {
-    printf("indirect desc NOT supported\n");
+    // printf("indirect desc NOT supported\n");
   }
   MMIO(VIRTIO_MMIO_DRIVER_FEATURES) |=
       VIRTIO_RING_F_INDIRECT_DESC;  // 使用间接描述符
@@ -727,7 +727,7 @@ static void drivers_virtio_gpu_transfer_to_host_2d_screen(int x, int y) {
 
       // printf("e->id=%d, type=0x%x\n", e->id, resp.type);
       if (e->id == head_idx && resp.type == VIRTIO_GPU_RESP_OK_NODATA) {
-        printf("transfer to host 2D successfully\n");
+        // printf("transfer to host 2D successfully\n");
       }
 
       // 更新驱动本地指针，不用取余
@@ -808,7 +808,7 @@ static void drivers_virtio_gpu_flush_screen() {
 
       // printf("e->id=%d, type=0x%x\n", e->id, resp.type);
       if (e->id == head_idx && resp.type == VIRTIO_GPU_RESP_OK_NODATA) {
-        printf("flush successfully\n");
+        // printf("flush successfully\n");
       }
 
       // 更新驱动本地指针，不用取余
