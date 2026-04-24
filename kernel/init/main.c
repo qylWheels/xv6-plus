@@ -10,6 +10,7 @@
 #include <fs/bio.h>
 #include <fs/file.h>
 #include <fs/fs.h>
+#include <init/couqie.h>
 #include <mm/kalloc.h>
 #include <mm/kmalloc.h>
 #include <mm/memlayout.h>
@@ -47,10 +48,14 @@ void main() {
     virtio_disk_init();         // emulated hard disk
     drivers_virtio_gpu_init();  // 初始化显卡
 
-    for (int i = 0; i < 500; i++) {
-      for (int j = 0; j < i; j++) {
-        drivers_virtio_gpu_draw_pixel(i, j, (233 + i) % 255,
-                                      (136 + 2 * j) % 255, 10, 25);
+    for (int y = 0; y < 567; y++) {
+      for (int x = 0; x < 756; x++) {
+        uint32 pixel = couqie[y * 756 + x];
+        uint32 b = pixel >> 24;
+        uint32 g = (pixel >> 16) & 0xff;
+        uint32 r = (pixel >> 8) & 0xff;
+        uint32 a = pixel & 0xff;
+        drivers_virtio_gpu_draw_pixel(x, y, r, g, b, a);
       }
     }
     drivers_virtio_gpu_flush();
