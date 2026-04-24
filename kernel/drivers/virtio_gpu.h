@@ -27,5 +27,6 @@ void drivers_virtio_gpu_init(void);
 // void drivers_virtio_gpu_flush(void);
 int drivers_virtio_gpu_draw_pixel(int x, int y, uint8 r, uint8 g, uint8 b,
                                   uint8 a);
+void drivers_virtio_gpu_flush(void);
 
 #endif  // _DRIVERS_VIRTIO_GPU_H_

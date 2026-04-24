@@ -47,21 +47,12 @@ void main() {
     virtio_disk_init();         // emulated hard disk
     drivers_virtio_gpu_init();  // 初始化显卡
 
-    int err;
-    for (int i = 0; i < 800; i++) {
-      for (int j = 0; j < 800; j++) {
-        if (i == j && 0 != (err = drivers_virtio_gpu_draw_pixel(i, j, 233, 168,
-                                                                17, 255))) {
-          printf("err=%d\n", err);
-        }
+    for (int i = 0; i < 200; i++) {
+      for (int j = 0; j < i; j++) {
+        drivers_virtio_gpu_draw_pixel(i, j, 0x22, 0x23, 0x24, 0x25);
       }
     }
-    // for (int i = 0; i < 640; i++) {
-    //   if (0 != (err = drivers_virtio_gpu_draw_pixel(i, 0, 233, 168, 17,
-    //   255))) {
-    //     printf("err=%d\n", err);
-    //   }
-    // }
+    drivers_virtio_gpu_flush();
 
     userinit();  // first user process
     __sync_synchronize();

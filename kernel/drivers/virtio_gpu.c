@@ -388,6 +388,7 @@ static void drivers_virtio_gpu_attach_backing(void) {
   // 内存条目
   for (uint32 i = 0; i < nr_pages; ++i) {
     void* mem = kalloc();
+    memset(mem, 0, PGSIZE);
 
     struct virtio_gpu_mem_entry* entry = kmalloc(sizeof(*entry));
     entry->addr = (uint64)mem;
@@ -660,7 +661,7 @@ void drivers_virtio_gpu_init(void) {
 }
 
 // 将数据传送给宿主机
-static void drivers_virtio_gpu_transfer_to_host_2d(int x, int y) {
+static void drivers_virtio_gpu_transfer_to_host_2d_screen(int x, int y) {
   acquire(&gpu.vgpu_lock);
 
   // 构造传输请求
@@ -673,7 +674,9 @@ static void drivers_virtio_gpu_transfer_to_host_2d(int x, int y) {
       .padding = {0},
   };
 
-  // 只刷新一个像素
+  // 只传输一个像素
+  // FIXME:
+  // 目前似乎做不到等用户flush时再将整个屏幕的像素传递给宿主，只能一个个传
   struct virtio_gpu_transfer_to_host_2d req = {
       .hdr = hdr,
       .r =
@@ -741,7 +744,7 @@ static void drivers_virtio_gpu_transfer_to_host_2d(int x, int y) {
 }
 
 // 刷新屏幕
-static void drivers_virtio_gpu_flush(int x, int y) {
+static void drivers_virtio_gpu_flush_screen() {
   acquire(&gpu.vgpu_lock);
 
   // printf("[flush] driver_ring.idx=%d\n", gpu.controlq.driver_ring->idx);
@@ -755,15 +758,15 @@ static void drivers_virtio_gpu_flush(int x, int y) {
       .padding = {0},
   };
 
-  // 只刷新一个像素
+  // 刷新整个屏幕
   struct virtio_gpu_resource_flush req = {
       .hdr = hdr,
       .r =
           {
-              .x = x,
-              .y = y,
-              .width = 1,
-              .height = 1,
+              .x = gpu.r.x,
+              .y = gpu.r.y,
+              .width = gpu.r.width,
+              .height = gpu.r.height,
           },
       .resource_id = 1,
       .padding = 0,
@@ -836,9 +839,12 @@ int drivers_virtio_gpu_draw_pixel(int x, int y, uint8 r, uint8 g, uint8 b,
   uint32 page_offset_pixel = page_offset_byte / sizeof(uint32);
   struct backing_store_item* item;
   HASH_FIND_INT(gpu.backing_store_hashtable, &page_idx, item);
-  *(item->mem + page_offset_pixel) = RGBA(r, g, b, a);
   __sync_synchronize();
-  drivers_virtio_gpu_transfer_to_host_2d(x, y);
-  drivers_virtio_gpu_flush(x, y);
+  *((volatile uint32*)(item->mem + page_offset_pixel)) = RGBA(r, g, b, a);
+  __sync_synchronize();
+  // FIXME: 目前必须每绘制一个像素就要传输一次，否则屏幕只会显示一条绿色的虚线
+  drivers_virtio_gpu_transfer_to_host_2d_screen(x, y);
   return 0;
 }
+
+void drivers_virtio_gpu_flush(void) { drivers_virtio_gpu_flush_screen(); }
