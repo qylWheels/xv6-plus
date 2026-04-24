@@ -295,7 +295,7 @@ static void drivers_virtio_gpu_create_2d_resource(void) {
   struct virtio_gpu_resource_create_2d req = {
       .hdr = hdr,
       .resource_id = 1,  // 现在只有一个资源
-      .format = VIRTIO_GPU_FORMAT_A8B8G8R8_UNORM,
+      .format = VIRTIO_GPU_FORMAT_B8G8R8A8_UNORM,
       .width = gpu.r.width,
       .height = gpu.r.height,
   };
@@ -356,8 +356,8 @@ static void drivers_virtio_gpu_create_2d_resource(void) {
 // 分配并将“显存”绑定到2d资源上
 // TODO: 权宜之计，扩展kmalloc可分配内存的上限才是正道
 #define LIST_SIZE (1280 * 800 * 4 / PGSIZE + 10)  // +10防越界
-struct virtio_gpu_mem_entry* entry_list[LIST_SIZE] = {0};
-struct virtq_desc indirect_descs[LIST_SIZE] = {0};
+struct virtio_gpu_mem_entry entry_list[LIST_SIZE] = {0};
+// struct virtq_desc indirect_descs[LIST_SIZE] = {0};
 static void drivers_virtio_gpu_attach_backing(void) {
   acquire(&gpu.vgpu_lock);
 
@@ -390,11 +390,11 @@ static void drivers_virtio_gpu_attach_backing(void) {
     void* mem = kalloc();
     memset(mem, 0, PGSIZE);
 
-    struct virtio_gpu_mem_entry* entry = kmalloc(sizeof(*entry));
-    entry->addr = (uint64)mem;
-    entry->length = PGSIZE;
-    entry->padding = 0;
-    entry_list[i] = entry;
+    // struct virtio_gpu_mem_entry* entry = kmalloc(sizeof(*entry));
+    entry_list[i].addr = (uint64)mem;
+    entry_list[i].length = PGSIZE;
+    entry_list[i].padding = 0;
+    // entry_list[i] = entry;
 
     struct backing_store_item* item = kmalloc(sizeof(*item));
     item->idx = i;
@@ -415,21 +415,23 @@ static void drivers_virtio_gpu_attach_backing(void) {
   gpu.controlq.desc_ring[head_idx].flags = 0 | VRING_DESC_F_NEXT;
   gpu.controlq.desc_ring[head_idx].next = second_idx;
 
-  for (int i = 0; i < nr_entries; ++i) {
-    indirect_descs[i].addr = (uint64)entry_list[i];
-    indirect_descs[i].len = sizeof(*entry_list[i]);
-    if (i < nr_entries - 1) {
-      indirect_descs[i].flags = VRING_DESC_F_NEXT;
-      indirect_descs[i].next = i + 1;
-    } else {
-      indirect_descs[i].flags = 0;
-      indirect_descs[i].next = 0;
-    }
-  }
+  // for (int i = 0; i < nr_entries; ++i) {
+  //   indirect_descs[i].addr = (uint64)entry_list[i];
+  //   indirect_descs[i].len = sizeof(*entry_list[i]);
+  //   if (i < nr_entries - 1) {
+  //     indirect_descs[i].flags = VRING_DESC_F_NEXT;
+  //     indirect_descs[i].next = i + 1;
+  //   } else {
+  //     indirect_descs[i].flags = 0;
+  //     indirect_descs[i].next = 0;
+  //   }
+  // }
 
-  // 存indirect descriptors
-  gpu.controlq.desc_ring[second_idx].addr = (uint64)indirect_descs;
-  gpu.controlq.desc_ring[second_idx].len = sizeof(indirect_descs);
+  // 存entries
+  // XXX: 第二个desc必须指向struct
+  // virtio_gpu_mem_entry数组的地址，而不是用间接desc
+  gpu.controlq.desc_ring[second_idx].addr = (uint64)entry_list;
+  gpu.controlq.desc_ring[second_idx].len = sizeof(entry_list);
   gpu.controlq.desc_ring[second_idx].flags = VRING_DESC_F_NEXT;
   gpu.controlq.desc_ring[second_idx].next = last_idx;
 
@@ -661,7 +663,7 @@ void drivers_virtio_gpu_init(void) {
 }
 
 // 将数据传送给宿主机
-static void drivers_virtio_gpu_transfer_to_host_2d_screen(int x, int y) {
+static void drivers_virtio_gpu_transfer_to_host_2d_screen() {
   acquire(&gpu.vgpu_lock);
 
   // 构造传输请求
@@ -681,10 +683,10 @@ static void drivers_virtio_gpu_transfer_to_host_2d_screen(int x, int y) {
       .hdr = hdr,
       .r =
           {
-              .x = x,
-              .y = y,
-              .width = 1,
-              .height = 1,
+              .x = gpu.r.x,
+              .y = gpu.r.y,
+              .width = gpu.r.width,
+              .height = gpu.r.height,
           },
       .offset = 0,
       .resource_id = 1,
@@ -824,27 +826,32 @@ static void drivers_virtio_gpu_flush_screen() {
   }
 }
 
-#define RGBA(r, g, b, a) (((r) << 24) | ((g) << 16) | ((b) << 8) | (a))
+#define RGBA(r, g, b, a) (((a) << 24) | ((r) << 16) | ((g) << 8) | (b))
 #define ERANGE 1
 
 // 向指定位置打印一个像素
 int drivers_virtio_gpu_draw_pixel(int x, int y, uint8 r, uint8 g, uint8 b,
                                   uint8 a) {
+  // printf("x=%d, y=%d\n", x, y);
   if (x >= gpu.r.x + gpu.r.width || y >= gpu.r.y + gpu.r.height) {
     return -ERANGE;
   }
   uint32 offset_pixel = y * gpu.r.width + x;
   uint32 page_idx = offset_pixel * sizeof(uint32) / PGSIZE;
+  // printf("pageidx=%d\n", page_idx);
   uint32 page_offset_byte = offset_pixel * sizeof(uint32) - page_idx * PGSIZE;
   uint32 page_offset_pixel = page_offset_byte / sizeof(uint32);
   struct backing_store_item* item;
   HASH_FIND_INT(gpu.backing_store_hashtable, &page_idx, item);
   __sync_synchronize();
   *((volatile uint32*)(item->mem + page_offset_pixel)) = RGBA(r, g, b, a);
+  // printf("addr=%p\n\n", (item->mem + page_offset_pixel));
   __sync_synchronize();
   // FIXME: 目前必须每绘制一个像素就要传输一次，否则屏幕只会显示一条绿色的虚线
-  drivers_virtio_gpu_transfer_to_host_2d_screen(x, y);
   return 0;
 }
 
-void drivers_virtio_gpu_flush(void) { drivers_virtio_gpu_flush_screen(); }
+void drivers_virtio_gpu_flush(void) {
+  drivers_virtio_gpu_transfer_to_host_2d_screen();
+  drivers_virtio_gpu_flush_screen();
+}

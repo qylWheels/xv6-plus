@@ -47,9 +47,10 @@ void main() {
     virtio_disk_init();         // emulated hard disk
     drivers_virtio_gpu_init();  // 初始化显卡
 
-    for (int i = 0; i < 200; i++) {
+    for (int i = 0; i < 500; i++) {
       for (int j = 0; j < i; j++) {
-        drivers_virtio_gpu_draw_pixel(i, j, 0x22, 0x23, 0x24, 0x25);
+        drivers_virtio_gpu_draw_pixel(i, j, (233 + i) % 255,
+                                      (136 + 2 * j) % 255, 10, 25);
       }
     }
     drivers_virtio_gpu_flush();
