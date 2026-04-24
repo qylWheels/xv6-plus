@@ -677,8 +677,6 @@ static void drivers_virtio_gpu_transfer_to_host_2d_screen() {
   };
 
   // 只传输一个像素
-  // FIXME:
-  // 目前似乎做不到等用户flush时再将整个屏幕的像素传递给宿主，只能一个个传
   struct virtio_gpu_transfer_to_host_2d req = {
       .hdr = hdr,
       .r =
@@ -847,7 +845,6 @@ int drivers_virtio_gpu_draw_pixel(int x, int y, uint8 r, uint8 g, uint8 b,
   *((volatile uint32*)(item->mem + page_offset_pixel)) = RGBA(r, g, b, a);
   // printf("addr=%p\n\n", (item->mem + page_offset_pixel));
   __sync_synchronize();
-  // FIXME: 目前必须每绘制一个像素就要传输一次，否则屏幕只会显示一条绿色的虚线
   return 0;
 }
 
