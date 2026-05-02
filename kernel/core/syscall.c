@@ -90,6 +90,7 @@ extern uint64 sys_close(void);
 extern uint64 sys_physmem_info(void);
 extern uint64 sys_pgfault_info(void);
 extern uint64 sys_sysinfo(void);
+extern uint64 sys_fork_as_thread(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -118,6 +119,7 @@ static uint64 (*syscalls[])(void) = {
     [SYS_physmem_info] sys_physmem_info,
     [SYS_pgfault_info] sys_pgfault_info,
     [SYS_sysinfo] sys_sysinfo,
+    [SYS_fork_as_thread] sys_fork_as_thread,
 };
 
 void syscall(void) {

@@ -45,3 +45,4 @@ entry("uptime");
 entry("physmem_info");
 entry("pgfault_info");
 entry("sysinfo");
+entry("fork_as_thread");
