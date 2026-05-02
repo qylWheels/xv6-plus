@@ -6,6 +6,7 @@
 #ifndef __ASSEMBLER__
 
 typedef uint64 pde_t;
+typedef long ptrdiff_t; // for uthash
 
 #endif  // __ASSEMBLER__
 

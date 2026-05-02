@@ -27,6 +27,8 @@
 // virtio mmio interface
 #define VIRTIO0 0x10001000
 #define VIRTIO0_IRQ 1
+#define VIRTIO1 0x10002000
+#define VIRTIO1_IRQ 2
 
 // qemu puts platform-level interrupt controller (PLIC) here.
 #define PLIC 0x0c000000L

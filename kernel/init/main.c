@@ -6,9 +6,11 @@
 #include <drivers/console.h>
 #include <drivers/plic.h>
 #include <drivers/virtio_disk.h>
+#include <drivers/virtio_gpu.h>
 #include <fs/bio.h>
 #include <fs/file.h>
 #include <fs/fs.h>
+#include <init/couqie.h>
 #include <mm/kalloc.h>
 #include <mm/kmalloc.h>
 #include <mm/memlayout.h>
@@ -31,20 +33,34 @@ void main() {
     printf("\n");
     printf("xv6 kernel is booting\n");
     printf("\n");
-    kinit();             // physical page allocator
-    kvminit();           // create kernel page table
-    kvminithart();       // turn on paging
-    kmallocinit();       // 初始化kmalloc模块
-    procinit();          // process table
-    trapinit();          // trap vectors
-    trapinithart();      // install kernel trap vector
-    plicinit();          // set up interrupt controller
-    plicinithart();      // ask PLIC for device interrupts
-    binit();             // buffer cache
-    iinit();             // inode table
-    fileinit();          // file table
-    virtio_disk_init();  // emulated hard disk
-    userinit();          // first user process
+    kinit();                    // physical page allocator
+    kvminit();                  // create kernel page table
+    kvminithart();              // turn on paging
+    kmallocinit();              // 初始化kmalloc模块
+    procinit();                 // process table
+    trapinit();                 // trap vectors
+    trapinithart();             // install kernel trap vector
+    plicinit();                 // set up interrupt controller
+    plicinithart();             // ask PLIC for device interrupts
+    binit();                    // buffer cache
+    iinit();                    // inode table
+    fileinit();                 // file table
+    virtio_disk_init();         // emulated hard disk
+    drivers_virtio_gpu_init();  // 初始化显卡
+
+    for (int y = 0; y < 567; y++) {
+      for (int x = 0; x < 756; x++) {
+        uint32 pixel = couqie[y * 756 + x];
+        uint32 b = pixel >> 24;
+        uint32 g = (pixel >> 16) & 0xff;
+        uint32 r = (pixel >> 8) & 0xff;
+        uint32 a = pixel & 0xff;
+        drivers_virtio_gpu_draw_pixel(x, y, r, g, b, a);
+      }
+    }
+    drivers_virtio_gpu_flush();
+
+    userinit();  // first user process
     __sync_synchronize();
 
 // 如果定义了UNIT_TEST宏，则运行单元测试后停机
