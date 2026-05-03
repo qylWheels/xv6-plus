@@ -121,4 +121,4 @@ uint64 sys_sysinfo(void) {
   return ksysinfo(path, (struct sysinfo*)p);
 }
 
-uint64 sys_fork_as_thread(void) { return -1; }
+uint64 sys_fork_as_thread(void) { return kfork_as_thread(); }

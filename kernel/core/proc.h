@@ -120,6 +120,7 @@ struct proc {
 int cpuid(void);
 void kexit(int);
 int kfork(void);
+int kfork_as_thread(void);
 int growproc(int);
 void proc_mapstacks(pagetable_t);
 pagetable_t proc_pagetable(struct proc*);

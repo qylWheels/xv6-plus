@@ -303,6 +303,52 @@ int kfork(void) {
   return pid;
 }
 
+// 轻量级fork，用于创建线程
+// 其余和kfork()类似
+int kfork_as_thread(void) {
+  int i, pid;
+  struct proc* np;
+  struct proc* p = myproc();
+
+  // 分配PCB
+  if ((np = allocproc()) == 0) {
+    return -1;
+  }
+
+  // allocproc()已经帮我们把内核所需的空间（尤其是trapframe）配置好了
+  // 所以不用uvmcopy()
+  np->pagetable = p->pagetable;
+
+  np->sz = p->sz;
+
+  // 拷贝trapframe
+  *(np->trapframe) = *(p->trapframe);
+
+  // 子进程返回0
+  np->trapframe->a0 = 0;
+
+  // 增加fd的引用计数
+  for (i = 0; i < NOFILE; i++)
+    if (p->ofile[i]) np->ofile[i] = filedup(p->ofile[i]);
+  np->cwd = idup(p->cwd);
+
+  safestrcpy(np->name, p->name, sizeof(p->name));
+
+  pid = np->pid;
+
+  release(&np->lock);
+
+  acquire(&wait_lock);
+  np->parent = p;
+  release(&wait_lock);
+
+  acquire(&np->lock);
+  np->state = RUNNABLE;
+  release(&np->lock);
+
+  return pid;
+}
+
 // Pass p's abandoned children to init.
 // Caller must hold wait_lock.
 void reparent(struct proc* p) {
