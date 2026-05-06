@@ -121,4 +121,11 @@ uint64 sys_sysinfo(void) {
   return ksysinfo(path, (struct sysinfo*)p);
 }
 
-uint64 sys_fork_as_thread(void) { return kfork_as_thread(); }
+uint64 sys_fork_as_thread(void) {
+  uint64 stack;
+  uint64 stack_size;
+  argaddr(0, &stack);
+  argaddr(1, &stack_size);
+
+  return kfork_as_thread((void *)stack, stack_size);
+}

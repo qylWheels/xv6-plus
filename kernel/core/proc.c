@@ -305,7 +305,7 @@ int kfork(void) {
 
 // 轻量级fork，用于创建线程
 // 其余和kfork()类似
-int kfork_as_thread(void) {
+int kfork_as_thread(void *stack, uint64 stack_size) {
   int i, pid;
   struct proc* np;
   struct proc* p = myproc();
