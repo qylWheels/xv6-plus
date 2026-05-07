@@ -109,10 +109,11 @@ struct proc {
   struct proc* parent;  // Parent process
 
   // these are private to the process, so p->lock need not be held.
-  uint64 kstack;                // Virtual address of kernel stack
-  uint64 sz;                    // 【父线程专用】Size of process memory (bytes)
-  uint64 *psz;                  // 【子线程专用】由子线程指向父线程的sz，从而实现共用
-  pagetable_t pagetable;        // User page table
+  uint64 kstack;          // Virtual address of kernel stack
+  uint64 ustack;          // 用户栈底（高地址）虚拟地址
+  uint64 sz;              // 【父线程专用】Size of process memory (bytes)
+  uint64* psz;            // 【子线程专用】由子线程指向父线程的sz，从而实现共用
+  pagetable_t pagetable;  // User page table
   struct trapframe* trapframe;  // 用于陷入时保存用户寄存器环境
   struct context context;       // 用于swtch()调度
   struct file* ofile[NOFILE];   // Open files

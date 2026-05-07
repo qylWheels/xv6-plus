@@ -266,6 +266,7 @@ int kfork(void) {
   if ((np = allocproc()) == 0) {
     return -1;
   }
+  np->ustack = p->ustack;
 
   // Copy user memory from parent to child.
   if (uvmcopy(p->pagetable, np->pagetable, p->sz) < 0) {
@@ -305,7 +306,7 @@ int kfork(void) {
 
 // 轻量级fork，用于创建线程
 // 其余和kfork()类似
-int kfork_as_thread(void *stack, uint64 stack_size) {
+int kfork_as_thread(void* stack, uint64 stack_size) {
   int i, pid;
   struct proc* np;
   struct proc* p = myproc();
