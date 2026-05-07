@@ -90,6 +90,8 @@ enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 // Per-process state
 struct proc {
+  uint8 lwp;  // 1表示是线程，0表示是进程
+
   struct spinlock lock;
 
   // p->lock must be held when using these:
@@ -108,10 +110,11 @@ struct proc {
 
   // these are private to the process, so p->lock need not be held.
   uint64 kstack;                // Virtual address of kernel stack
-  uint64 sz;                    // Size of process memory (bytes)
+  uint64 sz;                    // 【父线程专用】Size of process memory (bytes)
+  uint64 *psz;                  // 【子线程专用】由子线程指向父线程的sz，从而实现共用
   pagetable_t pagetable;        // User page table
-  struct trapframe* trapframe;  // data page for trampoline.S
-  struct context context;       // swtch() here to run process
+  struct trapframe* trapframe;  // 用于陷入时保存用户寄存器环境
+  struct context context;       // 用于swtch()调度
   struct file* ofile[NOFILE];   // Open files
   struct inode* cwd;            // Current directory
   char name[16];                // Process name (debugging)
@@ -120,7 +123,7 @@ struct proc {
 int cpuid(void);
 void kexit(int);
 int kfork(void);
-int kfork_as_thread(void *stack, uint64 stack_size);
+int kfork_as_thread(void* stack, uint64 stack_size);
 int growproc(int);
 void proc_mapstacks(pagetable_t);
 pagetable_t proc_pagetable(struct proc*);
