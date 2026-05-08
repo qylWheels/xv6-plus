@@ -15,6 +15,7 @@ uint64 uvmdealloc(pagetable_t, uint64, uint64);
 int uvmcopy(pagetable_t, pagetable_t, uint64);
 int uvmcopy_shallow(pagetable_t old, pagetable_t new, uint64 va_begin,
                     uint64 va_end);
+void freewalk(pagetable_t pagetable);
 void uvmfree(pagetable_t, uint64);
 void uvmunmap(pagetable_t, uint64, uint64, int);
 void uvmclear(pagetable_t, uint64);
