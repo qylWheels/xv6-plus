@@ -325,8 +325,9 @@ int kfork_as_thread(void* stack, uint64 stack_size) {
 
   // allocproc()已经帮我们把内核所需的空间（尤其是trapframe）配置好了
   // 所以不用uvmcopy()来拷贝全量数据，只需拷贝除了trampoline和trapframe以外的其他页表项
+  // 严格来说只需拷贝虚拟地址[0, p->sz)所对应的页表项
   // printf("gugugaga!!\n");
-  if (uvmcopy_shallow(p->pagetable, np->pagetable, 0, TRAPFRAME) < 0) {
+  if (uvmcopy_shallow(p->pagetable, np->pagetable, 0, p->sz) < 0) {
     freeproc(np);
     release(&np->lock);
     return -1;
