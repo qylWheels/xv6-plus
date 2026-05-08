@@ -310,10 +310,6 @@ int kfork(void) {
 // TODO: 添加栈地址检查，确保stack指针指向的栈地址是有效的
 #define ENOPROC 1     // 没有空闲的PCB
 #define ESTACKSIZE 2  // 用户提供的stack_size太小，不足以拷贝父进程用户栈的内容
-// 注意stack指针是用户态的指针，且指向栈顶（低地址）有有效数据的那个字节
-// TODO: 添加栈地址检查，确保stack指针指向的栈地址是有效的
-#define ENOPROC 1     // 没有空闲的PCB
-#define ESTACKSIZE 2  // 用户提供的stack_size太小，不足以拷贝父进程用户栈的内容
 int kfork_as_thread(void* stack, uint64 stack_size) {
   int i, pid;
   struct proc* np;
