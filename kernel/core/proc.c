@@ -318,7 +318,11 @@ int kfork_as_thread(void* stack, uint64 stack_size) {
   // 分配PCB
   if ((np = allocproc()) == 0) {
     return -ENOPROC;
+    return -ENOPROC;
   }
+
+  // 标记np为lwp
+  np->lwp = 1;
 
   // 标记np为lwp
   np->lwp = 1;
@@ -348,7 +352,32 @@ int kfork_as_thread(void* stack, uint64 stack_size) {
   np->ustack = (uint64)stack + stack_size;
 
   // 拷贝trapframe，但是把sp设为用户提供给的栈
+  // 所以不用uvmcopy()来拷贝全量数据，只需拷贝除了trampoline和trapframe以外的其他页表项
+  // printf("gugugaga!!\n");
+  if (uvmcopy_shallow(p->pagetable, np->pagetable, 0, TRAPFRAME) < 0) {
+    freeproc(np);
+    release(&np->lock);
+    return -1;
+  }
+  // printf("yarimasune!!\n");
+
+  // 线程的sz是没用的，只需将psz指向父进程的sz
+  np->psz = &p->sz;
+
+  // 要把用户栈的内容复制到用户提供的栈里
+  uint64 parent_ustack_data_size = p->ustack - p->trapframe->sp;
+  if (stack_size < parent_ustack_data_size) {
+    return -ESTACKSIZE;
+  }
+  char* stack_pa = (char*)walkaddr(
+      p->pagetable, (uint64)stack);  // 用户提供的stack参数对应的物理地址
+  copyin(p->pagetable, stack_pa, p->ustack - parent_ustack_data_size,
+         parent_ustack_data_size);
+  np->ustack = (uint64)stack + stack_size;
+
+  // 拷贝trapframe，但是把sp设为用户提供给的栈
   *(np->trapframe) = *(p->trapframe);
+  np->trapframe->sp = (uint64)(stack) + stack_size - parent_ustack_data_size;
   np->trapframe->sp = (uint64)(stack) + stack_size - parent_ustack_data_size;
 
   // 子进程返回0
