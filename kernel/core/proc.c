@@ -274,6 +274,7 @@ int kfork(void) {
     release(&np->lock);
     return -1;
   }
+  np->lwp = 0;
   np->sz = p->sz;
 
   // copy saved user registers.
