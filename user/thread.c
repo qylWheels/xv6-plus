@@ -2,20 +2,27 @@
 
 void test_thread(int tid) {
   if (tid == 0) {
-    printf("this is thread(lightweight child process)\n");
+    printf("^");
   } else if (tid > 0) {
-    printf("this is parent process\n");
+    printf("#");
   }
 }
 
 int main(int argc, char* argv[]) {
-  void* stack = malloc(1024);
-  int tid = fork_as_thread(stack, 1024);
+  void* stack = malloc(2048);
+  int tid = fork_as_thread(stack, 2048);
   if (tid < 0) {
     printf("failed to fork_as_thread()\n");
   }
-  for (int i = 0; i < 10; i++) {
+  for (int i = 0; i < 5; i++) {
     test_thread(tid);
   }
-  while (1);
+
+  // FIXME: 这样才能正常运行，检查原因
+  if (tid > 0) {
+    wait(0);
+  } else {
+    exit(0);
+  }
+  return 0;
 }

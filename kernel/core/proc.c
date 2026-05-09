@@ -28,6 +28,8 @@ struct spinlock pid_lock;
 
 extern void forkret(void);
 static void freeproc(struct proc* p);
+void procdump(void);
+void procdump_one(struct proc* p);
 
 extern char trampoline[];  // trampoline.S
 
@@ -155,14 +157,55 @@ found:
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
-
+  
   return p;
+}
+
+// 释放线程资源
+// 线程p必须持有p->lock
+static void freethread(struct proc* p) {
+  if (p->trapframe) kfree((void*)p->trapframe);
+  p->trapframe = 0;
+  if (p->pagetable) {
+    uvmunmap(p->pagetable, TRAMPOLINE, 1, 0);
+    uvmunmap(p->pagetable, TRAPFRAME, 1, 0);
+    // 用户态内存不能被释放，父进程还在使用
+    // 只能取消其对应的映射和释放页表项
+    if (!p->psz) {
+      panic("freethread: psz is NULL");
+    }
+    if (*(p->psz) == 0) {
+      panic("freethread: *psz is 0");
+    }
+    uvmunmap(p->pagetable, 0, PGROUNDUP(*p->psz) / PGSIZE, 0);
+    freewalk(p->pagetable);
+  }
+  p->pagetable = 0;
+  p->sz = 0;
+  p->pid = 0;
+  p->parent = 0;
+  p->name[0] = 0;
+  p->chan = 0;
+  p->killed = 0;
+  p->xstate = 0;
+  p->state = UNUSED;
+  p->pgfaults = 0;
+  p->ticks = 0;
+  p->volun_switches = 0;
+  p->involun_switches = 0;
 }
 
 // free a proc structure and the data hanging from it,
 // including user pages.
 // p->lock must be held.
 static void freeproc(struct proc* p) {
+  // 释放所有线程资源
+  for (struct proc* pp = proc; pp < &proc[NPROC]; pp++) {
+    if (pp->parent == p && pp->lwp) {
+      freethread(pp);
+    }
+  }
+
   if (p->trapframe) kfree((void*)p->trapframe);
   p->trapframe = 0;
   if (p->pagetable) proc_freepagetable(p->pagetable, p->sz);
@@ -236,6 +279,7 @@ void userinit(void) {
 
 // Grow or shrink user memory by n bytes.
 // Return 0 on success, -1 on failure.
+// TODO: 适配多线程环境
 int growproc(int n) {
   uint64 sz;
   struct proc* p = myproc();
@@ -384,7 +428,8 @@ void reparent(struct proc* p) {
   struct proc* pp;
 
   for (pp = proc; pp < &proc[NPROC]; pp++) {
-    if (pp->parent == p) {
+    // 只把进程而非线程交由initproc管理
+    if (pp->parent == p && !pp->lwp) {
       pp->parent = initproc;
       wakeup(initproc);
     }
@@ -460,7 +505,16 @@ int kwait(uint64 addr) {
             release(&wait_lock);
             return -1;
           }
-          freeproc(pp);
+
+          // 执行真正的释放子进程/线程资源的操作
+          printf("p->name = %s, pp->name = %s, pp->lwp = %d\n", p->name,
+                 pp->name, pp->lwp);
+          if (!pp->lwp) {
+            freeproc(pp);
+          } else {
+            freethread(pp);
+          }
+
           release(&pp->lock);
           release(&wait_lock);
           return pid;
@@ -701,6 +755,23 @@ int either_copyin(void* dst, int user_src, uint64 src, uint64 len) {
   }
 }
 
+// 打印一个进程的PCB
+void procdump_one(struct proc* p) {
+  printf("lwp: %d\n", p->lwp);
+  printf("state: %d\n", p->state);
+  printf("killed: %d\n", p->killed);
+  printf("xstate: %d\n", p->xstate);
+  printf("pid: %d\n", p->pid);
+  printf("parent: %p\n", p->parent);
+  printf("kstack: %ld\n", p->kstack);
+  printf("ustack: %ld\n", p->ustack);
+  printf("sz: %ld\n", p->sz);
+  printf("psz: %p\n", p->psz);
+  printf("pagetable: %p\n", p->pagetable);
+  printf("trapframe: %p\n", p->trapframe);
+  printf("name: %s\n", p->name);
+}
+
 // Print a process listing to console.  For debugging.
 // Runs when user types ^P on console.
 // No lock to avoid wedging a stuck machine further.
@@ -718,7 +789,7 @@ void procdump(void) {
       state = states[p->state];
     else
       state = "???";
-    printf("%d %s %s", p->pid, state, p->name);
+    printf("[%s] %d %s %s", p->lwp ? "thrd" : "proc", p->pid, state, p->name);
     printf("\n");
   }
 }
