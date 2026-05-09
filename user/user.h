@@ -34,7 +34,7 @@ int uptime(void);
 int physmem_info(struct physmem_info*);
 int pgfault_info(struct pgfault_info*);
 int sysinfo(const char* path, struct sysinfo* p);
-int fork_as_thread(void* stack, uint64 stack_size);
+int create_thread(void (*start)(void* arg), void* arg, void* stack, uint64 stack_size);
 
 // ulib.c
 int stat(const char*, struct stat*);
