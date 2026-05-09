@@ -505,8 +505,8 @@ int kwait(uint64 addr) {
           }
 
           // 执行真正的释放子进程/线程资源的操作
-          printf("p->name = %s, pp->name = %s, pp->lwp = %d\n", p->name,
-                 pp->name, pp->lwp);
+          // printf("p->name = %s, pp->name = %s, pp->lwp = %d\n", p->name,
+          //        pp->name, pp->lwp);
           if (!pp->lwp) {
             freeproc(pp);
           } else {
