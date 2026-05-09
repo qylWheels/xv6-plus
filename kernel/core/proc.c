@@ -374,33 +374,28 @@ int kcreate_thread(void (*start)(void* arg), void* arg, void* stack,
   // allocproc()已经帮我们把内核所需的空间（尤其是trapframe）配置好了
   // 所以不用uvmcopy()来拷贝全量数据，只需拷贝除了trampoline和trapframe以外的其他页表项
   // 严格来说只需拷贝虚拟地址[0, p->sz)所对应的页表项
-  // printf("gugugaga!!\n");
   if (uvmcopy_shallow(p->pagetable, np->pagetable, 0, p->sz) < 0) {
     freeproc(np);
     release(&np->lock);
     return -1;
   }
-  // printf("yarimasune!!\n");
 
   // 线程的sz是没用的，只需将psz指向父进程的sz
   np->psz = &p->sz;
 
-  // 要把用户栈的内容复制到用户提供的栈里
-  uint64 parent_ustack_data_size = p->ustack - p->trapframe->sp;
-  if (stack_size < parent_ustack_data_size) {
-    return -ESTACKSIZE;
-  }
-  char* stack_pa = (char*)walkaddr(
-      p->pagetable, (uint64)stack);  // 用户提供的stack参数对应的物理地址
-  copyin(p->pagetable, stack_pa, p->ustack - parent_ustack_data_size,
-         parent_ustack_data_size);
+  // 设置线程用户栈指针
   np->ustack = (uint64)stack + stack_size;
 
-  // 拷贝trapframe，但是把sp设为用户提供给的栈
-  *(np->trapframe) = *(p->trapframe);
-  np->trapframe->sp = (uint64)(stack) + stack_size - parent_ustack_data_size;
+  // 传递arg参数
+  uint64 ustack = (uint64)np->ustack;
+  copyout(np->pagetable, ustack - 4, (char*)&arg, sizeof arg);
 
-  // 子进程返回0
+  // 拷贝trapframe，但是把sp设为用户提供给的栈，epc设为start函数的地址
+  *(np->trapframe) = *(p->trapframe);
+  np->trapframe->sp = (uint64)stack + stack_size - sizeof arg;
+  np->trapframe->epc = (uint64)start;
+
+  // 子线程返回0
   np->trapframe->a0 = 0;
 
   // 增加fd的引用计数
