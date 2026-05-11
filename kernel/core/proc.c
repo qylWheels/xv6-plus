@@ -279,12 +279,19 @@ void userinit(void) {
 
 // Grow or shrink user memory by n bytes.
 // Return 0 on success, -1 on failure.
-// TODO: 适配多线程环境
 int growproc(int n) {
   uint64 sz;
   struct proc* p = myproc();
 
+  // 若是线程，则先找到其所属的进程，再增长内存空间
+  if (p->lwp) {
+    while (p->lwp) {
+      p = p->parent;
+    }
+  }
+
   sz = p->sz;
+
   if (n > 0) {
     if (sz + n > TRAPFRAME) {
       return -1;
@@ -354,16 +361,16 @@ int kfork(void) {
 // 不能仿照fork()，即使复制了父进程的用户栈。因为父进程栈帧中的s0(即fp)复制到子线程后，
 // 子线程在某个函数中返回时会试图返回到父进程的栈帧，这显然是错误的。因此正确的实现应该是
 // 由用户提供start函数，该函数会在子线程中被调用，且arg参数会被传递给start函数
-#define ENOPROC 1     // 没有空闲的PCB
-#define ESTACKSIZE 2  // 用户提供的stack_size太小，不足以拷贝父进程用户栈的内容
-#define EINVALSTACK 3 // 用户提供的stack指针指向的栈地址范围无效
+#define ENOPROC 1      // 没有空闲的PCB
+#define ESTACKSIZE 2   // 用户提供的stack_size太小，不足以拷贝父进程用户栈的内容
+#define EINVALSTACK 3  // 用户提供的stack指针指向的栈地址范围无效
 int kcreate_thread(void (*start)(void* arg), void* arg, void* stack,
                    uint64 stack_size) {
   int i, pid;
   struct proc* np;
   struct proc* p = myproc();
 
-  if((uint64)stack >= p->sz || (uint64)stack + stack_size > p->sz) {
+  if ((uint64)stack >= p->sz || (uint64)stack + stack_size > p->sz) {
     return -EINVALSTACK;
   }
 
