@@ -802,3 +802,16 @@ void procdump(void) {
     printf("\n");
   }
 }
+
+struct proc* get_proc_of_thread(const struct proc* p) {
+  /* 若p为进程，则返回其自身 */
+  if (!p->lwp) {
+    return p;
+  }
+
+  struct proc* search = p->parent;
+  while (search->lwp) {
+    search = search->parent;
+  }
+  return search;
+}

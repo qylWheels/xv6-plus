@@ -147,4 +147,7 @@ int either_copyout(int user_dst, uint64 dst, void* src, uint64 len);
 int either_copyin(void* dst, int user_src, uint64 src, uint64 len);
 void procdump(void);
 
+/* 获取线程p所属的进程，若为进程则返回p自身 */
+struct proc *get_proc_of_thread(const struct proc *p);
+
 #endif /* _CORE_PROC_H_ */
