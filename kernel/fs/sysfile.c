@@ -31,9 +31,10 @@ argfd(int n, int *pfd, struct file **pf)
 {
   int fd;
   struct file *f;
+  struct proc *proc=get_proc_of_thread(myproc());
 
   argint(n, &fd);
-  if(fd < 0 || fd >= NOFILE || (f=myproc()->ofile[fd]) == 0)
+  if(fd < 0 || fd >= NOFILE || (f=proc->ofile[fd]) == 0)
     return -1;
   if(pfd)
     *pfd = fd;
@@ -48,7 +49,7 @@ static int
 fdalloc(struct file *f)
 {
   int fd;
-  struct proc *p = myproc();
+  struct proc *p = get_proc_of_thread(myproc());
 
   for(fd = 0; fd < NOFILE; fd++){
     if(p->ofile[fd] == 0){
@@ -110,7 +111,7 @@ sys_close(void)
 
   if(argfd(0, &fd, &f) < 0)
     return -1;
-  myproc()->ofile[fd] = 0;
+  get_proc_of_thread(myproc())->ofile[fd] = 0;
   fileclose(f);
   return 0;
 }
@@ -419,7 +420,7 @@ sys_chdir(void)
 {
   char path[MAXPATH];
   struct inode *ip;
-  struct proc *p = myproc();
+  struct proc *p = get_proc_of_thread(myproc());
   
   begin_op();
   if(argstr(0, path, MAXPATH) < 0 || (ip = namei(path)) == 0){
@@ -455,6 +456,7 @@ sys_exec(void)
     if(i >= NELEM(argv)){
       goto bad;
     }
+    // TODO: 修复这里出错的问题
     if(fetchaddr(uargv+sizeof(uint64)*i, (uint64*)&uarg) < 0){
       goto bad;
     }
@@ -488,7 +490,7 @@ sys_pipe(void)
   uint64 fdarray; // user pointer to array of two integers
   struct file *rf, *wf;
   int fd0, fd1;
-  struct proc *p = myproc();
+  struct proc *p = get_proc_of_thread(myproc());
 
   argaddr(0, &fdarray);
   if(pipealloc(&rf, &wf) < 0)
