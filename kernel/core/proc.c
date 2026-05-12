@@ -195,16 +195,20 @@ static void freethread(struct proc* p) {
   p->involun_switches = 0;
 }
 
-// free a proc structure and the data hanging from it,
-// including user pages.
-// p->lock must be held.
-static void freeproc(struct proc* p) {
-  // 释放所有线程资源
+void freethreads_in_proc(struct proc* p) {
   for (struct proc* pp = proc; pp < &proc[NPROC]; pp++) {
     if (pp->parent == p && pp->lwp) {
       freethread(pp);
     }
   }
+}
+
+// free a proc structure and the data hanging from it,
+// including user pages.
+// p->lock must be held.
+static void freeproc(struct proc* p) {
+  // 释放所有线程资源
+  freethreads_in_proc(p);
 
   if (p->trapframe) kfree((void*)p->trapframe);
   p->trapframe = 0;

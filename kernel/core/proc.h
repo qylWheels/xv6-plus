@@ -150,4 +150,7 @@ void procdump(void);
 /* 获取线程p所属的进程，若为进程则返回p自身 */
 struct proc *get_proc_of_thread(struct proc *p);
 
+/* 释放进程p下的所有线程资源 */
+void freethreads_in_proc(struct proc* p);
+
 #endif /* _CORE_PROC_H_ */
