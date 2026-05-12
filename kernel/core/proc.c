@@ -803,7 +803,7 @@ void procdump(void) {
   }
 }
 
-struct proc* get_proc_of_thread(const struct proc* p) {
+struct proc* get_proc_of_thread(struct proc* p) {
   /* 若p为进程，则返回其自身 */
   if (!p->lwp) {
     return p;
