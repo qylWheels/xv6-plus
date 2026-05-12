@@ -13,9 +13,13 @@
 // Fetch the uint64 at addr from the current process.
 int fetchaddr(uint64 addr, uint64* ip) {
   struct proc* p = myproc();
-  if (addr >= p->sz ||
-      addr + sizeof(uint64) > p->sz)  // both tests needed, in case of overflow
+  /* 检查sz需要到进程里去比对，而非在线程里 */
+  if (p->lwp) {
+    p = get_proc_of_thread(p);
+  }
+  if (addr >= p->sz || addr + sizeof(uint64) > p->sz) {
     return -1;
+  }  // both tests needed, in case of overflow
   if (copyin(p->pagetable, (char*)ip, addr, sizeof(*ip)) != 0) return -1;
   return 0;
 }
