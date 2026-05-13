@@ -447,6 +447,11 @@ sys_exec(void)
   int i;
   uint64 uargv, uarg;
 
+  // 禁止线程调用exec()
+  if (myproc()->lwp) {
+    return -1;
+  }
+
   argaddr(1, &uargv);
   if(argstr(0, path, MAXPATH) < 0) {
     return -1;
