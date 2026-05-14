@@ -35,7 +35,7 @@ uint64 sys_sbrk(void) {
 
   argint(0, &n);
   argint(1, &t);
-  addr = myproc()->sz;
+  addr = get_proc_of_thread(myproc())->sz;
 
   if (t == SBRK_EAGER || n < 0) {
     if (growproc(n) < 0) {
@@ -47,7 +47,7 @@ uint64 sys_sbrk(void) {
     // memory, vmfault() will allocate it.
     if (addr + n < addr) return -1;
     if (addr + n > TRAPFRAME) return -1;
-    myproc()->sz += n;
+    get_proc_of_thread(myproc())->sz += n;
   }
   return addr;
 }
@@ -99,7 +99,7 @@ uint64 sys_physmem_info(void) {
   return 0;
 }
 
-// 获取当前进程的缺页异常相关信息，并填充用户传来的结构体
+// 获取当前进程/线程的缺页异常相关信息，并填充用户传来的结构体
 uint64 sys_pgfault_info(void) {
   uint64 p;
   argaddr(0, &p);

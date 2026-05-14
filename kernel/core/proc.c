@@ -93,6 +93,7 @@ struct cpu* mycpu(void) {
 }
 
 // Return the current struct proc *, or zero if none.
+// 注意返回的结构体可能是线程的，也可能是进程的
 struct proc* myproc(void) {
   push_off();
   struct cpu* c = mycpu();
@@ -285,14 +286,7 @@ void userinit(void) {
 // Return 0 on success, -1 on failure.
 int growproc(int n) {
   uint64 sz;
-  struct proc* p = myproc();
-
-  // 若是线程，则先找到其所属的进程，再增长内存空间
-  if (p->lwp) {
-    while (p->lwp) {
-      p = p->parent;
-    }
-  }
+  struct proc* p = get_proc_of_thread(myproc());
 
   sz = p->sz;
 
@@ -316,6 +310,11 @@ int kfork(void) {
   int i, pid;
   struct proc* np;
   struct proc* p = myproc();
+
+  // 禁止线程使用fork()
+  if (p->lwp) {
+    return -1;
+  }
 
   // Allocate process.
   if ((np = allocproc()) == 0) {
