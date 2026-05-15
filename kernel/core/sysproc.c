@@ -122,6 +122,10 @@ uint64 sys_sysinfo(void) {
 }
 
 uint64 sys_create_thread(void) {
+  if (myproc()->lwp) {
+    return -1;
+  }
+
   uint64 start;
   uint64 arg;
   uint64 stack;
@@ -131,5 +135,6 @@ uint64 sys_create_thread(void) {
   argaddr(2, &stack);
   argaddr(3, &stack_size);
 
-  return kcreate_thread((void (*)(void*))start, (void *)arg, (void *)stack, stack_size);
+  return kcreate_thread((void (*)(void*))start, (void*)arg, (void*)stack,
+                        stack_size);
 }
