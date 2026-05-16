@@ -400,17 +400,13 @@ int kcreate_thread(void (*start)(void* arg), void* arg, void* stack,
   // 设置线程用户栈指针
   np->ustack = (uint64)stack + stack_size;
 
-  // 传递arg参数
-  uint64 ustack = (uint64)np->ustack;
-  copyout(np->pagetable, ustack - 4, (char*)&arg, sizeof arg);
-
   // 拷贝trapframe，但是把sp设为用户提供给的栈，epc设为start函数的地址
   *(np->trapframe) = *(p->trapframe);
-  np->trapframe->sp = (uint64)stack + stack_size - sizeof arg;
+  np->trapframe->sp = (uint64)stack + stack_size;
   np->trapframe->epc = (uint64)start;
 
-  // 子线程返回0
-  np->trapframe->a0 = 0;
+  // 传递arg参数
+  np->trapframe->a0 = (uint64)arg;
 
   // 增加fd的引用计数
   for (i = 0; i < NOFILE; i++)
