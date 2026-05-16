@@ -46,12 +46,23 @@ void thread_open(void* arg) {
   exit(0);
 }
 
+void thread_dup(void* arg) {
+  int* fdarr = (int*)arg;
+  int fd_dupped = dup(fdarr[0]);
+  if (fd_dupped < 0) {
+    printf("thread_dup() failed, dup() failed, ret = %d\n", fd_dupped);
+    return;
+  }
+  fdarr[1] = fd_dupped;
+  exit(0);
+}
+
 int main(int argc, char* argv[]) {
   // 在下面的测试中将会复用这个栈
   uint stack_size = 512;
   void* stack = malloc(stack_size);
-  int tid, ret;
-  char buf[16] = {0};
+  int tid, ret, fd;
+  char buf[64] = {0};
   char* msg = "hello world";
 
   // 测试fork()-------------------------------------------------
@@ -102,7 +113,7 @@ int main(int argc, char* argv[]) {
   wait(0);
 
   // 测试open()---------------------------------------------
-  int fd = open("temp", O_CREATE | O_RDWR);
+  fd = open("temp", O_CREATE | O_RDWR);
   if (fd < 0) {
     printf("thread_open() failed, open() failed\n");
     return -1;
@@ -134,6 +145,51 @@ int main(int argc, char* argv[]) {
   close(fd);
   unlink("temp");
   printf("thread_open() ok\n");
+
+  // 测试dup()---------------------------------------------
+  fd = open("temp", O_CREATE | O_RDWR);
+  if (fd < 0) {
+    printf("thread_dup() failed, open() failed\n");
+    return -1;
+  }
+  int fdarr[2] = {fd, 0};
+  tid = create_thread(thread_dup, (void*)fdarr, stack, stack_size);
+  if (tid < 0) {
+    printf("failed to create_thread(): %d\n", tid);
+    return -1;
+  }
+  wait(0);
+  ret = write(fdarr[0], msg, strlen(msg) + 1);
+  if (ret < 0) {
+    printf("thread_dup() failed, write() 1 failed, ret = %d\n", ret);
+    return -1;
+  }
+  ret = write(fdarr[1], msg, strlen(msg) + 1);
+  if (ret != strlen(msg) + 1) {
+    printf("thread_dup() failed, write() 2 failed, ret = %d\n", ret);
+    return -1;
+  }
+  close(fdarr[0]);
+  close(fdarr[1]);
+
+  fd = open("temp", O_RDONLY);
+  if (fd < 0) {
+    printf("thread_dup() failed, open() 2 failed\n");
+    return -1;
+  }
+  ret = read(fd, buf, sizeof(buf));
+  if (ret != (strlen(msg) + 1) * 2) {
+    printf("thread_dup() failed, read() failed, ret = %d\n", ret);
+    return -1;
+  }
+  if (memcmp(buf, "hello world\0hello world", (strlen(msg) + 1) * 2) != 0) {
+    printf("thread_dup() failed, buf = %s\n", buf);
+    return -1;
+  }
+  close(fd);
+
+  unlink("temp");
+  printf("thread_dup() ok\n");
 
   free(stack);
   return 0;
