@@ -31,7 +31,8 @@ argfd(int n, int *pfd, struct file **pf)
 {
   int fd;
   struct file *f;
-  struct proc *proc=get_proc_of_thread(myproc());
+  // fd是私有的，不是进程内部所有线程共享的
+  struct proc *proc=myproc();
 
   argint(n, &fd);
   if(fd < 0 || fd >= NOFILE || (f=proc->ofile[fd]) == 0)
@@ -111,7 +112,9 @@ sys_close(void)
 
   if(argfd(0, &fd, &f) < 0)
     return -1;
-  get_proc_of_thread(myproc())->ofile[fd] = 0;
+  // 把fd清零是针对当前线程的，因此不需要获取其所属于的进程的fd表
+  myproc()->ofile[fd] = 0;
+  // 减引用计数才是针对所有进程/线程的
   fileclose(f);
   return 0;
 }
