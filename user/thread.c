@@ -15,7 +15,6 @@ void thread_fork(void* arg) {
 
 void thread_pipe_read_write_close_wait(void* arg) {
   int* pipefd = (int*)arg;
-  close(pipefd[0]);
   char* msg = "hello world";
   int ret = write(pipefd[1], msg, strlen(msg) + 1);
   if (ret != strlen(msg) + 1) {
@@ -24,7 +23,6 @@ void thread_pipe_read_write_close_wait(void* arg) {
         "%d\n",
         ret);
   }
-  close(pipefd[1]);
   exit(0);
 }
 
@@ -45,7 +43,6 @@ void thread_open(void* arg) {
   if (ret != strlen(msg) + 1) {
     printf("thread_open() failed, write() failed, ret = %d\n", ret);
   }
-  close(fd);
   exit(0);
 }
 
@@ -80,7 +77,6 @@ int main(int argc, char* argv[]) {
     return -1;
   }
 
-  close(pipefd[1]);
   if ((ret = read(pipefd[0], buf, sizeof(buf))) != strlen(msg) + 1) {
     printf(
         "thread_pipe_read_write_close_wait() failed, read() failed, ret = %d\n",
@@ -94,6 +90,7 @@ int main(int argc, char* argv[]) {
     printf("thread_pipe_read_write_close_wait() ok\n");
   }
   close(pipefd[0]);
+  close(pipefd[1]);
   wait(0);
 
   // 测试exec()---------------------------------------------
@@ -117,7 +114,7 @@ int main(int argc, char* argv[]) {
     return -1;
   }
   wait(0);
-  
+
   // xv6没有lseek系统调用，只能关了再开
   close(fd);
   fd = open("temp", O_RDWR);
