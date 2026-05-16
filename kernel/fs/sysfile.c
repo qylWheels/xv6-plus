@@ -31,8 +31,7 @@ argfd(int n, int *pfd, struct file **pf)
 {
   int fd;
   struct file *f;
-  // fd是私有的，不是进程内部所有线程共享的
-  struct proc *proc=myproc();
+  struct proc *proc=get_proc_of_thread(myproc());
 
   argint(n, &fd);
   if(fd < 0 || fd >= NOFILE || (f=proc->ofile[fd]) == 0)
@@ -112,9 +111,7 @@ sys_close(void)
 
   if(argfd(0, &fd, &f) < 0)
     return -1;
-  // 把fd清零是针对当前线程的，因此不需要获取其所属于的进程的fd表
-  myproc()->ofile[fd] = 0;
-  // 减引用计数才是针对所有进程/线程的
+  get_proc_of_thread(myproc())->ofile[fd] = 0;
   fileclose(f);
   return 0;
 }
@@ -497,7 +494,8 @@ sys_pipe(void)
   uint64 fdarray; // user pointer to array of two integers
   struct file *rf, *wf;
   int fd0, fd1;
-  struct proc *p = get_proc_of_thread(myproc());
+  struct proc *t = myproc();
+  struct proc *p = get_proc_of_thread(t);
 
   argaddr(0, &fdarray);
   if(pipealloc(&rf, &wf) < 0)
@@ -510,8 +508,8 @@ sys_pipe(void)
     fileclose(wf);
     return -1;
   }
-  if(copyout(p->pagetable, fdarray, (char*)&fd0, sizeof(fd0)) < 0 ||
-     copyout(p->pagetable, fdarray+sizeof(fd0), (char *)&fd1, sizeof(fd1)) < 0){
+  if(copyout(t->pagetable, fdarray, (char*)&fd0, sizeof(fd0)) < 0 ||
+     copyout(t->pagetable, fdarray+sizeof(fd0), (char *)&fd1, sizeof(fd1)) < 0){
     p->ofile[fd0] = 0;
     p->ofile[fd1] = 0;
     fileclose(rf);

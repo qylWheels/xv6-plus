@@ -369,7 +369,7 @@ int kfork(void) {
 #define EINVALSTACK 3  // 用户提供的stack指针指向的栈地址范围无效
 int kcreate_thread(void (*start)(void* arg), void* arg, void* stack,
                    uint64 stack_size) {
-  int i, pid;
+  int pid;
   struct proc* np;
   struct proc* p = myproc();
 
@@ -409,8 +409,6 @@ int kcreate_thread(void (*start)(void* arg), void* arg, void* stack,
   np->trapframe->a0 = (uint64)arg;
 
   // 增加fd的引用计数
-  for (i = 0; i < NOFILE; i++)
-    if (p->ofile[i]) np->ofile[i] = filedup(p->ofile[i]);
   np->cwd = idup(p->cwd);
 
   safestrcpy(np->name, p->name, sizeof(p->name));
