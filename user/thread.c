@@ -70,6 +70,15 @@ void thread_sys_sbrk(void* arg) {
   exit(0);
 }
 
+void thread_pause_uptime(void* arg) {
+  int* paused_time = (int*)arg;
+  int start_time = uptime();
+  pause(10);
+  int end_time = uptime();
+  *paused_time = end_time - start_time;
+  exit(0);
+}
+
 int main(int argc, char* argv[]) {
   // 在下面的测试中将会复用这个栈
   uint stack_size = 512;
@@ -240,6 +249,30 @@ int main(int argc, char* argv[]) {
     *p = 'f';  // 防止被编译器优化
   }
   printf("thread_sys_sbrk() ok\n");
+
+  // 测试pause()和uptime()------------------------------------------
+  int thread_paused_time = 0;
+  tid = create_thread(thread_pause_uptime, (void*)&thread_paused_time, stack,
+                      stack_size);
+  if (tid < 0) {
+    printf("failed to create_thread(): %d\n", tid);
+    return -1;
+  }
+  // 在等待线程执行结束前，进程就要开始计时
+  int proc_start_time = uptime();
+  pause(10);
+  int proc_end_time = uptime();
+  int proc_paused_time = proc_end_time - proc_start_time;
+  wait(0);
+  if (proc_paused_time == 10 && thread_paused_time == 10) {
+    printf("thread_pause_uptime() ok\n");
+  } else {
+    printf(
+        "thread_pause_uptime() failed, proc_paused_time = %d, expected 10; "
+        "thread_paused_time = %d, expected 10\n",
+        proc_paused_time, thread_paused_time);
+    return -1;
+  }
 
   free(stack);
   return 0;
