@@ -122,6 +122,7 @@ uint64 sys_sysinfo(void) {
 }
 
 uint64 sys_create_thread(void) {
+  // 禁止线程创建线程，只有进程才能创建线程
   if (myproc()->lwp) {
     return -1;
   }
