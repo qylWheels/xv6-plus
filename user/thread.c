@@ -57,6 +57,12 @@ void thread_dup(void* arg) {
   exit(0);
 }
 
+void thread_getpid(void* arg) {
+  int* tid = (int*)arg;
+  *tid = getpid();
+  exit(0);
+}
+
 int main(int argc, char* argv[]) {
   // 在下面的测试中将会复用这个栈
   uint stack_size = 512;
@@ -190,6 +196,22 @@ int main(int argc, char* argv[]) {
 
   unlink("temp");
   printf("thread_dup() ok\n");
+
+  // 测试getpid()---------------------------------------------
+  int pid = getpid();
+  int thread_pid;
+  ret = create_thread(thread_getpid, (void*)&thread_pid, stack, stack_size);
+  if (ret < 0) {
+    printf("failed to create_thread(): %d\n", ret);
+    return -1;
+  }
+  wait(0);
+  if (tid != pid) {
+    printf("thread_getpid() ok\n");
+  } else {
+    printf("thread_getpid() failed, tid = %d, pid = %d\n", tid, pid);
+    return -1;
+  }
 
   free(stack);
   return 0;
