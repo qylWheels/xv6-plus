@@ -96,6 +96,7 @@ kexec(char *path, char **argv)
   uvmclear(pagetable, sz-(USERSTACK+1)*PGSIZE);
   sp = sz;
   stackbase = sp - USERSTACK*PGSIZE;
+  p->ustack = sp;
 
   // Copy argument strings into new stack, remember their
   // addresses in ustack[].

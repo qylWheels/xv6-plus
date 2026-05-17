@@ -13,9 +13,13 @@
 // Fetch the uint64 at addr from the current process.
 int fetchaddr(uint64 addr, uint64* ip) {
   struct proc* p = myproc();
-  if (addr >= p->sz ||
-      addr + sizeof(uint64) > p->sz)  // both tests needed, in case of overflow
+  /* 检查sz需要到进程里去比对，而非在线程里 */
+  if (p->lwp) {
+    p = get_proc_of_thread(p);
+  }
+  if (addr >= p->sz || addr + sizeof(uint64) > p->sz) {
     return -1;
+  }  // both tests needed, in case of overflow
   if (copyin(p->pagetable, (char*)ip, addr, sizeof(*ip)) != 0) return -1;
   return 0;
 }
@@ -90,6 +94,7 @@ extern uint64 sys_close(void);
 extern uint64 sys_physmem_info(void);
 extern uint64 sys_pgfault_info(void);
 extern uint64 sys_sysinfo(void);
+extern uint64 sys_create_thread(void);
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -118,6 +123,7 @@ static uint64 (*syscalls[])(void) = {
     [SYS_physmem_info] sys_physmem_info,
     [SYS_pgfault_info] sys_pgfault_info,
     [SYS_sysinfo] sys_sysinfo,
+    [SYS_create_thread] sys_create_thread,
 };
 
 void syscall(void) {

@@ -28,6 +28,8 @@ struct spinlock pid_lock;
 
 extern void forkret(void);
 static void freeproc(struct proc* p);
+void procdump(void);
+void procdump_one(struct proc* p);
 
 extern char trampoline[];  // trampoline.S
 
@@ -91,6 +93,7 @@ struct cpu* mycpu(void) {
 }
 
 // Return the current struct proc *, or zero if none.
+// 注意返回的结构体可能是线程的，也可能是进程的
 struct proc* myproc(void) {
   push_off();
   struct cpu* c = mycpu();
@@ -159,10 +162,55 @@ found:
   return p;
 }
 
+// 释放线程资源
+// 线程p必须持有p->lock
+static void freethread(struct proc* p) {
+  if (p->trapframe) kfree((void*)p->trapframe);
+  p->trapframe = 0;
+  if (p->pagetable) {
+    uvmunmap(p->pagetable, TRAMPOLINE, 1, 0);
+    uvmunmap(p->pagetable, TRAPFRAME, 1, 0);
+    // 用户态内存不能被释放，父进程还在使用
+    // 只能取消其对应的映射和释放页表项
+    if (!p->psz) {
+      panic("freethread: psz is NULL");
+    }
+    if (*(p->psz) == 0) {
+      panic("freethread: *psz is 0");
+    }
+    uvmunmap(p->pagetable, 0, PGROUNDUP(*p->psz) / PGSIZE, 0);
+    freewalk(p->pagetable);
+  }
+  p->pagetable = 0;
+  p->sz = 0;
+  p->pid = 0;
+  p->parent = 0;
+  p->name[0] = 0;
+  p->chan = 0;
+  p->killed = 0;
+  p->xstate = 0;
+  p->state = UNUSED;
+  p->pgfaults = 0;
+  p->ticks = 0;
+  p->volun_switches = 0;
+  p->involun_switches = 0;
+}
+
+void freethreads_in_proc(struct proc* p) {
+  for (struct proc* pp = proc; pp < &proc[NPROC]; pp++) {
+    if (pp->parent == p && pp->lwp) {
+      freethread(pp);
+    }
+  }
+}
+
 // free a proc structure and the data hanging from it,
 // including user pages.
 // p->lock must be held.
 static void freeproc(struct proc* p) {
+  // 释放所有线程资源
+  freethreads_in_proc(p);
+
   if (p->trapframe) kfree((void*)p->trapframe);
   p->trapframe = 0;
   if (p->pagetable) proc_freepagetable(p->pagetable, p->sz);
@@ -238,9 +286,10 @@ void userinit(void) {
 // Return 0 on success, -1 on failure.
 int growproc(int n) {
   uint64 sz;
-  struct proc* p = myproc();
+  struct proc* p = get_proc_of_thread(myproc());
 
   sz = p->sz;
+
   if (n > 0) {
     if (sz + n > TRAPFRAME) {
       return -1;
@@ -262,10 +311,16 @@ int kfork(void) {
   struct proc* np;
   struct proc* p = myproc();
 
+  // 禁止线程使用fork()
+  if (p->lwp) {
+    return -1;
+  }
+
   // Allocate process.
   if ((np = allocproc()) == 0) {
     return -1;
   }
+  np->ustack = p->ustack;
 
   // Copy user memory from parent to child.
   if (uvmcopy(p->pagetable, np->pagetable, p->sz) < 0) {
@@ -273,6 +328,7 @@ int kfork(void) {
     release(&np->lock);
     return -1;
   }
+  np->lwp = 0;
   np->sz = p->sz;
 
   // copy saved user registers.
@@ -303,13 +359,83 @@ int kfork(void) {
   return pid;
 }
 
+// stack指针是用户态的指针，且指向栈顶（低地址）有有效数据的那个字节
+// XXX:
+// 不能仿照fork()，即使复制了父进程的用户栈。因为父进程栈帧中的s0(即fp)复制到子线程后，
+// 子线程在某个函数中返回时会试图返回到父进程的栈帧，这显然是错误的。因此正确的实现应该是
+// 由用户提供start函数，该函数会在子线程中被调用，且arg参数会被传递给start函数
+#define ENOPROC 1      // 没有空闲的PCB
+#define ESTACKSIZE 2   // 用户提供的stack_size太小，不足以拷贝父进程用户栈的内容
+#define EINVALSTACK 3  // 用户提供的stack指针指向的栈地址范围无效
+int kcreate_thread(void (*start)(void* arg), void* arg, void* stack,
+                   uint64 stack_size) {
+  int pid;
+  struct proc* np;
+  struct proc* p = myproc();
+
+  if ((uint64)stack >= p->sz || (uint64)stack + stack_size > p->sz) {
+    return -EINVALSTACK;
+  }
+
+  // 分配PCB
+  if ((np = allocproc()) == 0) {
+    return -ENOPROC;
+  }
+
+  // 标记np为lwp
+  np->lwp = 1;
+
+  // allocproc()已经帮我们把内核所需的空间（尤其是trapframe）配置好了
+  // 所以不用uvmcopy()来拷贝全量数据，只需拷贝除了trampoline和trapframe以外的其他页表项
+  // 严格来说只需拷贝虚拟地址[0, p->sz)所对应的页表项
+  if (uvmcopy_shallow(p->pagetable, np->pagetable, 0, p->sz) < 0) {
+    freeproc(np);
+    release(&np->lock);
+    return -1;
+  }
+
+  // 线程的sz是没用的，只需将psz指向父进程的sz
+  np->psz = &p->sz;
+
+  // 设置线程用户栈指针
+  np->ustack = (uint64)stack + stack_size;
+
+  // 拷贝trapframe，但是把sp设为用户提供给的栈，epc设为start函数的地址
+  *(np->trapframe) = *(p->trapframe);
+  np->trapframe->sp = (uint64)stack + stack_size;
+  np->trapframe->epc = (uint64)start;
+
+  // 传递arg参数
+  np->trapframe->a0 = (uint64)arg;
+
+  // 增加fd的引用计数
+  np->cwd = idup(p->cwd);
+
+  safestrcpy(np->name, p->name, sizeof(p->name));
+
+  pid = np->pid;
+
+  release(&np->lock);
+
+  acquire(&wait_lock);
+  np->parent = p;
+  release(&wait_lock);
+
+  acquire(&np->lock);
+  np->state = RUNNABLE;
+  release(&np->lock);
+
+  return pid;
+}
+
 // Pass p's abandoned children to init.
 // Caller must hold wait_lock.
 void reparent(struct proc* p) {
   struct proc* pp;
 
   for (pp = proc; pp < &proc[NPROC]; pp++) {
-    if (pp->parent == p) {
+    // 只把进程而非线程交由initproc管理
+    if (pp->parent == p && !pp->lwp) {
       pp->parent = initproc;
       wakeup(initproc);
     }
@@ -385,7 +511,16 @@ int kwait(uint64 addr) {
             release(&wait_lock);
             return -1;
           }
-          freeproc(pp);
+
+          // 执行真正的释放子进程/线程资源的操作
+          // printf("p->name = %s, pp->name = %s, pp->lwp = %d\n", p->name,
+          //        pp->name, pp->lwp);
+          if (!pp->lwp) {
+            freeproc(pp);
+          } else {
+            freethread(pp);
+          }
+
           release(&pp->lock);
           release(&wait_lock);
           return pid;
@@ -626,6 +761,23 @@ int either_copyin(void* dst, int user_src, uint64 src, uint64 len) {
   }
 }
 
+// 打印一个进程的PCB
+void procdump_one(struct proc* p) {
+  printf("lwp: %d\n", p->lwp);
+  printf("state: %d\n", p->state);
+  printf("killed: %d\n", p->killed);
+  printf("xstate: %d\n", p->xstate);
+  printf("pid: %d\n", p->pid);
+  printf("parent: %p\n", p->parent);
+  printf("kstack: %ld\n", p->kstack);
+  printf("ustack: %ld\n", p->ustack);
+  printf("sz: %ld\n", p->sz);
+  printf("psz: %p\n", p->psz);
+  printf("pagetable: %p\n", p->pagetable);
+  printf("trapframe: %p\n", p->trapframe);
+  printf("name: %s\n", p->name);
+}
+
 // Print a process listing to console.  For debugging.
 // Runs when user types ^P on console.
 // No lock to avoid wedging a stuck machine further.
@@ -643,7 +795,20 @@ void procdump(void) {
       state = states[p->state];
     else
       state = "???";
-    printf("%d %s %s", p->pid, state, p->name);
+    printf("[%s] %d %s %s", p->lwp ? "thrd" : "proc", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+struct proc* get_proc_of_thread(struct proc* p) {
+  /* 若p为进程，则返回其自身 */
+  if (!p->lwp) {
+    return p;
+  }
+
+  struct proc* search = p->parent;
+  while (search->lwp) {
+    search = search->parent;
+  }
+  return search;
 }

@@ -31,9 +31,10 @@ argfd(int n, int *pfd, struct file **pf)
 {
   int fd;
   struct file *f;
+  struct proc *proc=get_proc_of_thread(myproc());
 
   argint(n, &fd);
-  if(fd < 0 || fd >= NOFILE || (f=myproc()->ofile[fd]) == 0)
+  if(fd < 0 || fd >= NOFILE || (f=proc->ofile[fd]) == 0)
     return -1;
   if(pfd)
     *pfd = fd;
@@ -48,7 +49,7 @@ static int
 fdalloc(struct file *f)
 {
   int fd;
-  struct proc *p = myproc();
+  struct proc *p = get_proc_of_thread(myproc());
 
   for(fd = 0; fd < NOFILE; fd++){
     if(p->ofile[fd] == 0){
@@ -110,7 +111,7 @@ sys_close(void)
 
   if(argfd(0, &fd, &f) < 0)
     return -1;
-  myproc()->ofile[fd] = 0;
+  get_proc_of_thread(myproc())->ofile[fd] = 0;
   fileclose(f);
   return 0;
 }
@@ -419,7 +420,7 @@ sys_chdir(void)
 {
   char path[MAXPATH];
   struct inode *ip;
-  struct proc *p = myproc();
+  struct proc *p = get_proc_of_thread(myproc());
   
   begin_op();
   if(argstr(0, path, MAXPATH) < 0 || (ip = namei(path)) == 0){
@@ -445,6 +446,11 @@ sys_exec(void)
   char path[MAXPATH], *argv[MAXARG];
   int i;
   uint64 uargv, uarg;
+
+  // 禁止线程调用exec()
+  if (myproc()->lwp) {
+    return -1;
+  }
 
   argaddr(1, &uargv);
   if(argstr(0, path, MAXPATH) < 0) {
@@ -488,7 +494,8 @@ sys_pipe(void)
   uint64 fdarray; // user pointer to array of two integers
   struct file *rf, *wf;
   int fd0, fd1;
-  struct proc *p = myproc();
+  struct proc *t = myproc();
+  struct proc *p = get_proc_of_thread(t);
 
   argaddr(0, &fdarray);
   if(pipealloc(&rf, &wf) < 0)
@@ -501,8 +508,8 @@ sys_pipe(void)
     fileclose(wf);
     return -1;
   }
-  if(copyout(p->pagetable, fdarray, (char*)&fd0, sizeof(fd0)) < 0 ||
-     copyout(p->pagetable, fdarray+sizeof(fd0), (char *)&fd1, sizeof(fd1)) < 0){
+  if(copyout(t->pagetable, fdarray, (char*)&fd0, sizeof(fd0)) < 0 ||
+     copyout(t->pagetable, fdarray+sizeof(fd0), (char *)&fd1, sizeof(fd1)) < 0){
     p->ofile[fd0] = 0;
     p->ofile[fd1] = 0;
     fileclose(rf);

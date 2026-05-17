@@ -26,6 +26,7 @@
 #define SYS_physmem_info 22
 #define SYS_pgfault_info 23
 #define SYS_sysinfo 24
+#define SYS_create_thread 25
 
 #ifndef __ASSEMBLER__
 

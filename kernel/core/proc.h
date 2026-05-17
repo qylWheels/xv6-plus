@@ -90,6 +90,8 @@ enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 // Per-process state
 struct proc {
+  uint8 lwp;  // 1表示是线程，0表示是进程
+
   struct spinlock lock;
 
   // p->lock must be held when using these:
@@ -107,11 +109,13 @@ struct proc {
   struct proc* parent;  // Parent process
 
   // these are private to the process, so p->lock need not be held.
-  uint64 kstack;                // Virtual address of kernel stack
-  uint64 sz;                    // Size of process memory (bytes)
-  pagetable_t pagetable;        // User page table
-  struct trapframe* trapframe;  // data page for trampoline.S
-  struct context context;       // swtch() here to run process
+  uint64 kstack;          // Virtual address of kernel stack
+  uint64 ustack;          // 用户栈底（存放数据的高地址 + 1字节）虚拟地址
+  uint64 sz;              // 【父线程专用】Size of process memory (bytes)
+  uint64* psz;            // 【子线程专用】由子线程指向父线程的sz，从而实现共用
+  pagetable_t pagetable;  // User page table
+  struct trapframe* trapframe;  // 用于陷入时保存用户寄存器环境
+  struct context context;       // 用于swtch()调度
   struct file* ofile[NOFILE];   // Open files
   struct inode* cwd;            // Current directory
   char name[16];                // Process name (debugging)
@@ -120,6 +124,8 @@ struct proc {
 int cpuid(void);
 void kexit(int);
 int kfork(void);
+int kcreate_thread(void (*start)(void* arg), void* arg, void* stack,
+                   uint64 stack_size);
 int growproc(int);
 void proc_mapstacks(pagetable_t);
 pagetable_t proc_pagetable(struct proc*);
@@ -140,5 +146,11 @@ void yield(void);
 int either_copyout(int user_dst, uint64 dst, void* src, uint64 len);
 int either_copyin(void* dst, int user_src, uint64 src, uint64 len);
 void procdump(void);
+
+/* 获取线程p所属的进程，若为进程则返回p自身 */
+struct proc *get_proc_of_thread(struct proc *p);
+
+/* 释放进程p下的所有线程资源 */
+void freethreads_in_proc(struct proc* p);
 
 #endif /* _CORE_PROC_H_ */
