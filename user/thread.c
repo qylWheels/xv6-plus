@@ -79,6 +79,14 @@ void thread_pause_uptime(void* arg) {
   exit(0);
 }
 
+void thread_create_thread(void* arg) {
+  int* ret = (int*)arg;
+  uint stack_size = 512;
+  void* stack = malloc(stack_size);
+  *ret = create_thread(thread_create_thread, (void*)0, stack, stack_size);
+  exit(0);
+}
+
 int main(int argc, char* argv[]) {
   // 在下面的测试中将会复用这个栈
   uint stack_size = 512;
@@ -272,6 +280,20 @@ int main(int argc, char* argv[]) {
         "thread_paused_time = %d, expected 10\n",
         proc_paused_time, thread_paused_time);
     return -1;
+  }
+
+  // 测试sysinfo()---------------------------------------------
+  // TODO: 懒得写了
+
+  // 测试create_thread()和----------------------------------------
+  tid = create_thread(thread_create_thread, (void*)&ret, stack, stack_size);
+  if (tid < 0) {
+    printf("failed to create_thread(): %d\n", tid);
+    return -1;
+  }
+  wait(0);
+  if (ret < 0) {
+    printf("thread_create_thread() ok\n");
   }
 
   free(stack);
