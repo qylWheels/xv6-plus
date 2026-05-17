@@ -1,4 +1,5 @@
 #include <kernel/uapi/fs/fcntl.h>
+#include <kernel/uapi/mm/vm.h>
 
 #include "user/user.h"
 
@@ -60,6 +61,12 @@ void thread_dup(void* arg) {
 void thread_getpid(void* arg) {
   int* tid = (int*)arg;
   *tid = getpid();
+  exit(0);
+}
+
+void thread_sys_sbrk(void* arg) {
+  char* brk = sys_sbrk(4096, SBRK_EAGER);
+  *(char**)arg = brk;
   exit(0);
 }
 
@@ -212,6 +219,27 @@ int main(int argc, char* argv[]) {
     printf("thread_getpid() failed, tid = %d, pid = %d\n", tid, pid);
     return -1;
   }
+
+  // 测试sys_sbrk()---------------------------------------------
+  char* prev_brk = 0;
+  tid = create_thread(thread_sys_sbrk, (void*)&prev_brk, stack, stack_size);
+  if (tid < 0) {
+    printf("failed to create_thread(): %d\n", tid);
+    return -1;
+  }
+  wait(0);
+  if (prev_brk < 0) {
+    printf("thread_sys_sbrk() failed, sys_sbrk() failed, prev_brk = %p\n",
+           prev_brk);
+    return -1;
+  }
+  char* current_brk = sys_sbrk(0, SBRK_EAGER);
+
+  // 只需测试在prev_brk和current_brk之间访存是否成功
+  for (volatile char* p = prev_brk; p < current_brk; p++) {
+    *p = 'f';  // 防止被编译器优化
+  }
+  printf("thread_sys_sbrk() ok\n");
 
   free(stack);
   return 0;
