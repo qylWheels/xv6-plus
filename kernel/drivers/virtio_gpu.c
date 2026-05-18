@@ -557,7 +557,7 @@ static void drivers_virtio_gpu_set_scanout(void) {
 }
 
 // 初始化gpu
-void drivers_virtio_gpu_init(void) {
+int drivers_virtio_gpu_init(void) {
   // 初始化gpu结构体先
   init_gpu_struct();
 
@@ -659,7 +659,7 @@ void drivers_virtio_gpu_init(void) {
   drivers_virtio_gpu_attach_backing();
   drivers_virtio_gpu_set_scanout();
 
-  return;
+  return 0;
 }
 
 // 将数据传送给宿主机
@@ -848,7 +848,8 @@ int drivers_virtio_gpu_draw_pixel(int x, int y, uint8 r, uint8 g, uint8 b,
   return 0;
 }
 
-void drivers_virtio_gpu_flush(void) {
+int drivers_virtio_gpu_flush(void) {
   drivers_virtio_gpu_transfer_to_host_2d_screen();
   drivers_virtio_gpu_flush_screen();
+  return 0;
 }
