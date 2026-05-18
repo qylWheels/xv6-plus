@@ -10,6 +10,10 @@
 #include <fs/bio.h>
 #include <fs/file.h>
 #include <fs/fs.h>
+#include <gui/basic_draw.h>
+#include <gui/common.h>
+#include <gui/win98ui.h>
+#include <gui/window.h>
 #include <init/couqie.h>
 #include <mm/kalloc.h>
 #include <mm/kmalloc.h>
@@ -17,6 +21,7 @@
 #include <mm/vm.h>
 #include <test/unity.h>
 #include <test/unity_fixture.h>
+#include <utils/misc.h>
 #include <utils/printf.h>
 
 volatile static int started = 0;
@@ -24,6 +29,12 @@ volatile static int started = 0;
 #ifdef UNIT_TEST
 static void run_all_tests(void) { RUN_TEST_GROUP(kmalloc); }
 #endif  // UNIT_TEST
+
+struct gui_basic_drawer virtio_gpu = {
+    .name = "virtio_gpu",
+    .ops = {.draw_pixel = drivers_virtio_gpu_draw_pixel,
+            .flush = drivers_virtio_gpu_flush},
+};
 
 // start() jumps here in supervisor mode on all CPUs.
 void main() {
@@ -48,17 +59,9 @@ void main() {
     virtio_disk_init();         // emulated hard disk
     drivers_virtio_gpu_init();  // 初始化显卡
 
-    for (int y = 0; y < 567; y++) {
-      for (int x = 0; x < 756; x++) {
-        uint32 pixel = couqie[y * 756 + x];
-        uint32 b = pixel >> 24;
-        uint32 g = (pixel >> 16) & 0xff;
-        uint32 r = (pixel >> 8) & 0xff;
-        uint32 a = pixel & 0xff;
-        drivers_virtio_gpu_draw_pixel(x, y, r, g, b, a);
-      }
-    }
-    drivers_virtio_gpu_flush();
+    gui_set_basic_drawer(&virtio_gpu);
+    gui_set_window_manager(&win98_window_manager);
+    gui_draw_window(0, 0);
 
     userinit();  // first user process
     __sync_synchronize();
