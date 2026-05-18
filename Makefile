@@ -36,7 +36,9 @@ OBJS = \
 	$K/mm/test/test_runner.o \
 	$K/sysinfo/sysinfo.o \
 	$K/drivers/virtio_gpu.o \
-	$K/windows/win98ui.o \
+	$K/gui/basic_draw.o \
+	$K/gui/win98ui.o \
+	$K/gui/window.o \
 
 # riscv64-unknown-elf- or riscv64-linux-gnu-
 # perhaps in /opt/riscv/bin
